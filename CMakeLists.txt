@@ -16,7 +16,7 @@ enable_testing()
 add_test(NAME decoder_test COMMAND test_decoder)
 
 # CPU library and single-cycle test
-add_library(cpu STATIC src/cpu/registers.cpp src/cpu/alu.cpp src/cpu/single_cycle.cpp src/cpu/pipeline.cpp)
+add_library(cpu STATIC src/cpu/registers.cpp src/cpu/alu.cpp src/cpu/single_cycle.cpp src/cpu/pipeline.cpp src/mem/memory.cpp src/cache/simple_cache.cpp)
 target_include_directories(cpu PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(cpu PRIVATE isa)
 
@@ -27,3 +27,7 @@ add_test(NAME singlecycle_test COMMAND test_singlecycle)
 add_executable(test_pipeline tests/test_pipeline.cpp)
 target_link_libraries(test_pipeline PRIVATE cpu isa)
 add_test(NAME pipeline_test COMMAND test_pipeline)
+
+add_executable(test_pipeline_forward tests/test_pipeline_forward.cpp)
+target_link_libraries(test_pipeline_forward PRIVATE cpu isa)
+add_test(NAME pipeline_forward_test COMMAND test_pipeline_forward)
