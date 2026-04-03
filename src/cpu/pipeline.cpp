@@ -1,4 +1,5 @@
 #include "cpu/pipeline.h"
+#include "periph/timer_mmio.h"
 #include <sstream>
 
 namespace cpu {
@@ -9,6 +10,9 @@ Pipeline::Pipeline(const std::vector<uint32_t>& program, size_t mem_size) : prog
   // default miss latency set to 0 for tests; can be tuned later
   icache_ = new SimpleCache(&mem_, 16 * 1024, 64, 0);
   dcache_ = new SimpleCache(&mem_, 16 * 1024, 64, 0);
+  // map timer MMIO region
+  constexpr uint32_t TIMER_MMIO_BASE = 0x10000000u;
+  mem_.map_device(TIMER_MMIO_BASE, 0x20, new periph::TimerMMIO(&timer_));
   // copy program into physical memory at address 0
   for (size_t i = 0; i < program_.size(); ++i) {
     mem_.store32(static_cast<uint32_t>(i * 4), program_[i]);
