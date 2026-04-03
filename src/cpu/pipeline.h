@@ -3,6 +3,8 @@
 #include "cpu/registers.h"
 #include "mem/memory.h"
 #include "cache/simple_cache.h"
+#include "cpu/csr.h"
+#include "periph/timer.h"
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -55,6 +57,8 @@ public:
   const EXMEMReg& exmem() const { return exmem_; }
   const MEMWBReg& memwb() const { return memwb_; }
   RegisterFile& regs() { return regs_; }
+  cpu::CSR& csr() { return csr_; }
+  periph::Timer& timer() { return timer_; }
   std::string dump_regs() const;
 
 private:
@@ -78,6 +82,9 @@ private:
   MEMWBReg pending_memwb_;
   uint32_t pending_mem_value_ = 0;
   bool last_stall_ = false;
+  // CSRs and timer
+  cpu::CSR csr_;
+  periph::Timer timer_;
 };
 
 } // namespace cpu

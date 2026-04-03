@@ -120,7 +120,12 @@ Decoded decode(uint32_t inst) {
     case 0x73: // SYSTEM
       d.type = InstType::I;
       d.imm = sign_extend(inst >> 20, 12);
-      d.name = "SYSTEM";
+        {
+          uint32_t funct12 = (inst >> 20) & 0xfff;
+          if (inst == 0x00000073) d.name = "ECALL";
+          else if (funct12 == 0x302) d.name = "MRET";
+          else d.name = "SYSTEM";
+        }
       break;
 
     default:

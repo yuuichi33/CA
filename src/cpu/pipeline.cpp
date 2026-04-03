@@ -63,6 +63,28 @@ bool Pipeline::step() {
     }
   }
 
+  // timer tick and interrupt injection
+  if (timer_.tick()) {
+    csr_.set_mip_timer(true);
+  }
+
+  // handle pending timer interrupt: trap to mtvec
+  if (csr_.pending_timer_interrupt()) {
+    // set mepc to current pc_
+    csr_.write_mepc(pc_);
+    // set mcause with interrupt bit + timer IRQ number (7)
+    csr_.write_mcause((1u << 31) | 7u);
+    uint32_t vec = csr_.read_mtvec();
+    pc_ = vec;
+    // flush pipeline
+    ifid_.valid = false;
+    idex_.valid = false;
+    exmem_.valid = false;
+    memwb_.valid = false;
+    csr_.set_mip_timer(false);
+    return false;
+  }
+
   // ------------------ MEM stage ------------------
   memwb_ = MEMWBReg();
   if (prev_exmem.valid) {
@@ -96,6 +118,30 @@ bool Pipeline::step() {
   bool branch_taken = false;
   uint32_t branch_target = 0;
   if (prev_idex.valid) {
+    // handle ECALL -> synchronous trap
+    if (prev_idex.inst.name == "ECALL") {
+      csr_.write_mepc(prev_idex.pc);
+      csr_.write_mcause(11u); // environment call from M-mode
+      pc_ = csr_.read_mtvec();
+      // flush pipeline
+      ifid_.valid = false;
+      idex_.valid = false;
+      exmem_.valid = false;
+      memwb_.valid = false;
+      return false;
+    }
+
+    // handle MRET -> return from trap
+    if (prev_idex.inst.name == "MRET") {
+      pc_ = csr_.read_mepc();
+      // clear pending timer flag
+      csr_.set_mip_timer(false);
+      ifid_.valid = false;
+      idex_.valid = false;
+      exmem_.valid = false;
+      memwb_.valid = false;
+      return false;
+    }
     // operand fetch with forwarding: prioritize EX/MEM, then MEM/WB
     uint32_t a = prev_idex.rs1_val;
     uint32_t b = prev_idex.rs2_val;
