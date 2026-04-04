@@ -10,8 +10,12 @@ public:
   SimpleCache(mem::Memory* mem, size_t cache_size = 16 * 1024, size_t line_size = 64, int miss_latency = 10);
   // returns pair<value, latency_cycles>
   std::pair<uint32_t, int> load32(uint32_t addr);
+  std::pair<uint32_t, int> load8(uint32_t addr);
+  std::pair<uint32_t, int> load16(uint32_t addr);
   // store32 returns latency (0 for write-through immediate)
   int store32(uint32_t addr, uint32_t value);
+  int store8(uint32_t addr, uint8_t value);
+  int store16(uint32_t addr, uint16_t value);
 
 private:
   struct Line { std::vector<uint8_t> data; uint32_t tag = 0; bool valid = false; };

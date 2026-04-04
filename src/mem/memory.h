@@ -17,7 +17,11 @@ public:
   explicit Memory(size_t sz = 64 * 1024);
   ~Memory();
   uint32_t load32(uint32_t addr);
+  uint8_t load8(uint32_t addr);
+  uint16_t load16(uint32_t addr);
   void store32(uint32_t addr, uint32_t value);
+  void store8(uint32_t addr, uint8_t value);
+  void store16(uint32_t addr, uint16_t value);
   // store raw bytes into memory (resizes backing store if necessary)
   void store_bytes(uint32_t addr, const uint8_t* buf, size_t len);
   // map a device at [base, base+size)

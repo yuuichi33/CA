@@ -71,7 +71,8 @@ bool Pipeline::step() {
 
   // ------------------ WB stage ------------------
   if (prev_memwb.valid && prev_memwb.write_back && prev_memwb.rd != 0) {
-    if (prev_memwb.inst.name == "LW") {
+    const std::string &wbname = prev_memwb.inst.name;
+    if (wbname == "LW" || wbname == "LB" || wbname == "LH" || wbname == "LBU" || wbname == "LHU") {
       regs_.write(prev_memwb.rd, prev_memwb.mem_data);
     } else {
       regs_.write(prev_memwb.rd, prev_memwb.alu_result);
@@ -121,21 +122,58 @@ bool Pipeline::step() {
     memwb_.write_back = prev_exmem.write_back;
     memwb_.alu_result = prev_exmem.alu_result;
 
-    if (prev_exmem.inst.name == "LW") {
-      // use dcache for data access
+    const std::string &mname = prev_exmem.inst.name;
+    if (mname == "LW") {
       auto res = dcache_->load32(prev_exmem.alu_result);
       if (res.second == 0) {
         memwb_.mem_data = res.first;
       } else {
-        // miss: stall pipeline for res.second cycles then deliver
         stall_counter_ = res.second;
         stall_kind_ = StallKind::MemLoad;
         pending_memwb_ = memwb_;
         pending_mem_value_ = res.first;
         return true;
       }
-    } else if (prev_exmem.inst.name == "SW") {
+    } else if (mname == "LB" || mname == "LBU") {
+      auto res = dcache_->load8(prev_exmem.alu_result);
+      if (res.second == 0) {
+        uint32_t byte = res.first & 0xffu;
+        if (mname == "LB") {
+          int32_t sval = static_cast<int32_t>(static_cast<int8_t>(byte & 0xff));
+          memwb_.mem_data = static_cast<uint32_t>(sval);
+        } else {
+          memwb_.mem_data = byte;
+        }
+      } else {
+        stall_counter_ = res.second;
+        stall_kind_ = StallKind::MemLoad;
+        pending_memwb_ = memwb_;
+        pending_mem_value_ = res.first & 0xffu;
+        return true;
+      }
+    } else if (mname == "LH" || mname == "LHU") {
+      auto res = dcache_->load16(prev_exmem.alu_result);
+      if (res.second == 0) {
+        uint32_t half = res.first & 0xffffu;
+        if (mname == "LH") {
+          int32_t sval = static_cast<int32_t>(static_cast<int16_t>(half & 0xffff));
+          memwb_.mem_data = static_cast<uint32_t>(sval);
+        } else {
+          memwb_.mem_data = half;
+        }
+      } else {
+        stall_counter_ = res.second;
+        stall_kind_ = StallKind::MemLoad;
+        pending_memwb_ = memwb_;
+        pending_mem_value_ = res.first & 0xffffu;
+        return true;
+      }
+    } else if (mname == "SW") {
       dcache_->store32(prev_exmem.alu_result, prev_exmem.rs2_val);
+    } else if (mname == "SB") {
+      dcache_->store8(prev_exmem.alu_result, static_cast<uint8_t>(prev_exmem.rs2_val & 0xffu));
+    } else if (mname == "SH") {
+      dcache_->store16(prev_exmem.alu_result, static_cast<uint16_t>(prev_exmem.rs2_val & 0xffffu));
     }
   }
 
@@ -174,17 +212,25 @@ bool Pipeline::step() {
     uint32_t b = prev_idex.rs2_val;
 
     // forward for rs1
-    if (prev_exmem.valid && prev_exmem.rd != 0 && prev_exmem.write_back && prev_exmem.rd == prev_idex.inst.rs1 && prev_exmem.inst.name != "LW") {
-      a = prev_exmem.alu_result;
+    if (prev_exmem.valid && prev_exmem.rd != 0 && prev_exmem.write_back && prev_exmem.rd == prev_idex.inst.rs1) {
+      const std::string &exname = prev_exmem.inst.name;
+      if (!(exname == "LW" || exname == "LB" || exname == "LH" || exname == "LBU" || exname == "LHU")) {
+        a = prev_exmem.alu_result;
+      }
     } else if (prev_memwb.valid && prev_memwb.rd != 0 && prev_memwb.write_back && prev_memwb.rd == prev_idex.inst.rs1) {
-      if (prev_memwb.inst.name == "LW") a = prev_memwb.mem_data; else a = prev_memwb.alu_result;
+      const std::string &wbname2 = prev_memwb.inst.name;
+      if (wbname2 == "LW" || wbname2 == "LB" || wbname2 == "LH" || wbname2 == "LBU" || wbname2 == "LHU") a = prev_memwb.mem_data; else a = prev_memwb.alu_result;
     }
 
     // forward for rs2
-    if (prev_exmem.valid && prev_exmem.rd != 0 && prev_exmem.write_back && prev_exmem.rd == prev_idex.inst.rs2 && prev_exmem.inst.name != "LW") {
-      b = prev_exmem.alu_result;
+    if (prev_exmem.valid && prev_exmem.rd != 0 && prev_exmem.write_back && prev_exmem.rd == prev_idex.inst.rs2) {
+      const std::string &exname2 = prev_exmem.inst.name;
+      if (!(exname2 == "LW" || exname2 == "LB" || exname2 == "LH" || exname2 == "LBU" || exname2 == "LHU")) {
+        b = prev_exmem.alu_result;
+      }
     } else if (prev_memwb.valid && prev_memwb.rd != 0 && prev_memwb.write_back && prev_memwb.rd == prev_idex.inst.rs2) {
-      if (prev_memwb.inst.name == "LW") b = prev_memwb.mem_data; else b = prev_memwb.alu_result;
+      const std::string &wbname3 = prev_memwb.inst.name;
+      if (wbname3 == "LW" || wbname3 == "LB" || wbname3 == "LH" || wbname3 == "LBU" || wbname3 == "LHU") b = prev_memwb.mem_data; else b = prev_memwb.alu_result;
     }
 
     uint32_t alu_res = 0;
@@ -201,7 +247,7 @@ bool Pipeline::step() {
     else if (name == "XOR") alu_res = a ^ b;
     else if (name == "SLT") alu_res = (static_cast<int32_t>(a) < static_cast<int32_t>(b)) ? 1u : 0u;
     else if (name == "SLTU") alu_res = (a < b) ? 1u : 0u;
-    else if (name == "LW" || name == "SW") alu_res = a + static_cast<uint32_t>(prev_idex.inst.imm);
+    else if (name == "LW" || name == "SW" || name == "LB" || name == "LBU" || name == "LH" || name == "LHU" || name == "SB" || name == "SH") alu_res = a + static_cast<uint32_t>(prev_idex.inst.imm);
     else if (name == "BEQ") {
       if (a == b) { branch_taken = true; branch_target = prev_idex.pc + prev_idex.inst.imm; }
     } else if (name == "BNE") {
@@ -220,10 +266,10 @@ bool Pipeline::step() {
     exmem_.pc = prev_idex.pc;
     exmem_.valid = prev_idex.valid;
     exmem_.alu_result = alu_res;
-    exmem_.rs2_val = prev_idex.rs2_val;
+    exmem_.rs2_val = b;
     exmem_.rd = prev_idex.inst.rd;
     // determine if instruction writes back
-    exmem_.write_back = (name == "ADD" || name == "SUB" || name == "ADDI" || name == "SLLI" || name == "SLL" || name == "SRL" || name == "SRA" || name == "OR" || name == "AND" || name == "XOR" || name == "SLT" || name == "SLTU" || name == "LW" || name == "JAL" || name == "JALR" || name == "LUI" || name == "AUIPC");
+    exmem_.write_back = (name == "ADD" || name == "SUB" || name == "ADDI" || name == "SLLI" || name == "SLL" || name == "SRL" || name == "SRA" || name == "OR" || name == "AND" || name == "XOR" || name == "SLT" || name == "SLTU" || name == "LW" || name == "LB" || name == "LH" || name == "LBU" || name == "LHU" || name == "JAL" || name == "JALR" || name == "LUI" || name == "AUIPC");
 
     if (branch_taken) {
       pc_ = branch_target;
@@ -235,7 +281,7 @@ bool Pipeline::step() {
   // ------------------ ID and IF stage ------------------
   // hazard detection: load-use (prev_idex is a load and prev_ifid uses its rd)
   bool hazard = false;
-  if (prev_idex.valid && prev_idex.inst.name == "LW" && prev_ifid.valid) {
+  if (prev_idex.valid && (prev_idex.inst.name == "LW" || prev_idex.inst.name == "LB" || prev_idex.inst.name == "LH" || prev_idex.inst.name == "LBU" || prev_idex.inst.name == "LHU") && prev_ifid.valid) {
     uint32_t rs1 = prev_ifid.inst.rs1;
     uint32_t rs2 = prev_ifid.inst.rs2;
     if ((rs1 != 0 && rs1 == prev_idex.inst.rd) || (rs2 != 0 && rs2 == prev_idex.inst.rd)) {

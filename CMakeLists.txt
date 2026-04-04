@@ -51,3 +51,11 @@ add_test(NAME elf_loader_test COMMAND test_elf_loader)
 add_executable(test_integration_uart_timer tests/test_integration_uart_timer.cpp)
 target_link_libraries(test_integration_uart_timer PRIVATE cpu isa)
 add_test(NAME integration_uart_timer_test COMMAND test_integration_uart_timer)
+
+add_executable(test_load_store_byte_half tests/test_load_store_byte_half.cpp)
+target_link_libraries(test_load_store_byte_half PRIVATE cpu isa)
+add_test(NAME load_store_byte_half_test COMMAND test_load_store_byte_half)
+
+add_executable(test_pipeline_load_store_instr tests/test_pipeline_load_store_instr.cpp)
+target_link_libraries(test_pipeline_load_store_instr PRIVATE cpu isa)
+add_test(NAME pipeline_load_store_instr_test COMMAND test_pipeline_load_store_instr)

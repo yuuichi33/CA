@@ -74,6 +74,8 @@ public:
   RegisterFile& regs() { return regs_; }
   cpu::CSR& csr() { return csr_; }
   periph::Timer& timer() { return timer_; }
+  // expose memory for tests/tools
+  mem::Memory& memory() { return mem_; }
   std::string dump_regs() const;
 
 private:
