@@ -1,6 +1,12 @@
 #include "cpu/pipeline.h"
 #include "periph/timer_mmio.h"
+#include "periph/uart_mmio.h"
+#include "elf/elf_loader.h"
 #include <sstream>
+#include <thread>
+#include <atomic>
+#include <poll.h>
+#include <unistd.h>
 
 namespace cpu {
 
@@ -10,9 +16,14 @@ Pipeline::Pipeline(const std::vector<uint32_t>& program, size_t mem_size) : prog
   // default miss latency set to 0 for tests; can be tuned later
   icache_ = new SimpleCache(&mem_, 16 * 1024, 64, 0);
   dcache_ = new SimpleCache(&mem_, 16 * 1024, 64, 0);
-  // map timer MMIO region
+  // map timer MMIO region (keep pointer for possible future use)
   constexpr uint32_t TIMER_MMIO_BASE = 0x10000000u;
-  mem_.map_device(TIMER_MMIO_BASE, 0x20, new periph::TimerMMIO(&timer_));
+  timer_mmio_ = new periph::TimerMMIO(&timer_);
+  mem_.map_device(TIMER_MMIO_BASE, 0x20, timer_mmio_);
+  // map UART MMIO region (keep pointer so tests can inject RX)
+  constexpr uint32_t UART_MMIO_BASE = 0x10001000u;
+  uart_mmio_ = new periph::UARTMMIO(&csr_);
+  mem_.map_device(UART_MMIO_BASE, 0x20, uart_mmio_);
   // copy program into physical memory at address 0
   for (size_t i = 0; i < program_.size(); ++i) {
     mem_.store32(static_cast<uint32_t>(i * 4), program_[i]);
@@ -72,7 +83,7 @@ bool Pipeline::step() {
     csr_.set_mip_timer(true);
   }
 
-  // handle pending timer interrupt: trap to mtvec
+  // handle pending interrupts: timer first, then UART
   if (csr_.pending_timer_interrupt()) {
     // set mepc to current pc_
     csr_.write_mepc(pc_);
@@ -86,6 +97,17 @@ bool Pipeline::step() {
     exmem_.valid = false;
     memwb_.valid = false;
     csr_.set_mip_timer(false);
+    return false;
+  } else if (csr_.pending_uart_interrupt()) {
+    csr_.write_mepc(pc_);
+    csr_.write_mcause((1u << 31) | 3u);
+    uint32_t vec = csr_.read_mtvec();
+    pc_ = vec;
+    ifid_.valid = false;
+    idex_.valid = false;
+    exmem_.valid = false;
+    memwb_.valid = false;
+    csr_.set_mip_uart(false);
     return false;
   }
 
@@ -138,8 +160,9 @@ bool Pipeline::step() {
     // handle MRET -> return from trap
     if (prev_idex.inst.name == "MRET") {
       pc_ = csr_.read_mepc();
-      // clear pending timer flag
+      // clear pending flags
       csr_.set_mip_timer(false);
+      csr_.set_mip_uart(false);
       ifid_.valid = false;
       idex_.valid = false;
       exmem_.valid = false;
@@ -264,6 +287,152 @@ bool Pipeline::step() {
   }
 
   return last_stall_;
+}
+
+void Pipeline::inject_uart_rx(uint8_t b) {
+  if (uart_mmio_) uart_mmio_->inject_rx(b);
+}
+
+void Pipeline::uart_write_ier(uint32_t ier) {
+  if (uart_mmio_) {
+    // IER is at offset 0x04
+    uart_mmio_->store32(0x04, ier);
+  }
+}
+
+Pipeline::~Pipeline() {
+  stop_uart_stdin_bridge();
+}
+
+void Pipeline::start_uart_stdin_bridge() {
+  if (!uart_mmio_) return;
+  if (uart_stdin_running_.load()) return;
+  uart_stdin_stop_.store(false);
+  uart_stdin_running_.store(true);
+  uart_stdin_thread_ = std::thread([this]() {
+    struct pollfd pfd;
+    pfd.fd = STDIN_FILENO;
+    pfd.events = POLLIN;
+    while (!uart_stdin_stop_.load()) {
+      int ret = poll(&pfd, 1, 200);
+      if (ret > 0 && (pfd.revents & POLLIN)) {
+        char buf[128];
+        ssize_t n = read(STDIN_FILENO, buf, sizeof(buf));
+        if (n > 0) {
+          for (ssize_t i = 0; i < n; ++i) {
+            inject_uart_rx(static_cast<uint8_t>(buf[i]));
+          }
+        } else if (n == 0) {
+          // EOF, stop bridge
+          break;
+        }
+      }
+    }
+    uart_stdin_running_.store(false);
+  });
+}
+
+void Pipeline::stop_uart_stdin_bridge() {
+  if (!uart_stdin_running_.load()) return;
+  uart_stdin_stop_.store(true);
+  if (uart_stdin_thread_.joinable()) uart_stdin_thread_.join();
+  uart_stdin_running_.store(false);
+}
+
+bool Pipeline::load_elf(const std::string& path, const std::vector<std::string>& argv_in, const std::vector<std::string>& envp_in) {
+  uint32_t entry = 0;
+  elf::LoadInfo info;
+  if (!elf::load_elf(path, mem_, entry, &info)) return false;
+  pc_ = entry;
+
+  // prepare argv/envp
+  std::vector<std::string> argv = argv_in;
+  std::vector<std::string> envp = envp_in;
+  if (argv.empty()) argv.push_back(path.empty() ? std::string("program") : path);
+
+  // stack layout and sizing
+  const uint32_t page = 0x1000u;
+  const uint32_t reserve = 0x10000u; // reserve 64KB for stack
+  const uint32_t guard = page; // guard page at top
+  // align stack top up to page boundary to avoid partial pages
+  uint32_t stack_top = static_cast<uint32_t>(((mem_.size() + reserve + page - 1) / page) * page);
+  uint32_t sp = stack_top - guard;
+  auto align_down = [](uint32_t v, uint32_t a) { return v & ~(a - 1); };
+
+  // ensure backing memory includes stack_top
+  uint8_t z = 0;
+  mem_.store_bytes(stack_top - 1, &z, 1);
+
+  // allocate strings (argv and envp) from high addresses downward
+  uint32_t cur = sp;
+  std::vector<uint32_t> argv_ptrs(argv.size());
+  for (int i = static_cast<int>(argv.size()) - 1; i >= 0; --i) {
+    const auto &s = argv[i];
+    uint32_t len = static_cast<uint32_t>(s.size());
+    if (len + 1 > cur) return false;
+    cur -= (len + 1);
+    mem_.store_bytes(cur, reinterpret_cast<const uint8_t*>(s.c_str()), len + 1);
+    argv_ptrs[i] = cur;
+  }
+
+  std::vector<uint32_t> env_ptrs(envp.size());
+  for (int i = static_cast<int>(envp.size()) - 1; i >= 0; --i) {
+    const auto &s = envp[i];
+    uint32_t len = static_cast<uint32_t>(s.size());
+    if (len + 1 > cur) return false;
+    cur -= (len + 1);
+    mem_.store_bytes(cur, reinterpret_cast<const uint8_t*>(s.c_str()), len + 1);
+    env_ptrs[i] = cur;
+  }
+
+  // align down to 4 for pointer area
+  cur = align_down(cur, 4);
+
+  // build auxv
+  const uint32_t AT_NULL = 0;
+  const uint32_t AT_PHDR = 3;
+  const uint32_t AT_PHENT = 4;
+  const uint32_t AT_PHNUM = 5;
+  const uint32_t AT_PAGESZ = 6;
+  const uint32_t AT_BASE = 7;
+  const uint32_t AT_ENTRY = 9;
+
+  std::vector<std::pair<uint32_t,uint32_t>> auxv;
+  uint32_t phdr_runtime = info.phdr;
+  auxv.push_back({AT_PHDR, phdr_runtime});
+  auxv.push_back({AT_PHENT, info.phent});
+  auxv.push_back({AT_PHNUM, info.phnum});
+  auxv.push_back({AT_PAGESZ, 4096});
+  auxv.push_back({AT_ENTRY, entry});
+  if (info.base != 0) auxv.push_back({AT_BASE, info.base});
+  auxv.push_back({AT_NULL, 0});
+
+  // compute size needed for argc/argv/envp/auxv
+  uint32_t argc = static_cast<uint32_t>(argv.size());
+  uint32_t envc = static_cast<uint32_t>(envp.size());
+  uint32_t ptrs_bytes = 4 /*argc*/ + (argc + 1 + envc + 1) * 4 + static_cast<uint32_t>(auxv.size()) * 2 * 4;
+
+  uint32_t new_sp = align_down(cur - ptrs_bytes, 16);
+
+  // ensure backing memory covers stack_top (already done), now write pointer area
+  uint32_t addr = new_sp;
+  mem_.store32(addr, argc); addr += 4;
+  // argv pointers
+  for (uint32_t i = 0; i < argc; ++i) { mem_.store32(addr, argv_ptrs[i]); addr += 4; }
+  mem_.store32(addr, 0); addr += 4; // argv NULL
+  // envp pointers
+  for (uint32_t i = 0; i < envc; ++i) { mem_.store32(addr, env_ptrs[i]); addr += 4; }
+  mem_.store32(addr, 0); addr += 4; // envp NULL
+  // auxv entries
+  for (auto &p : auxv) { mem_.store32(addr, p.first); addr += 4; mem_.store32(addr, p.second); addr += 4; }
+
+  // set registers: sp (x2), a0 (x10)=argc, a1 (x11)=argv pointer, a2 (x12)=envp pointer
+  regs_.write(2, new_sp);
+  regs_.write(10, argc);
+  regs_.write(11, new_sp + 4);
+  regs_.write(12, new_sp + 4 + (argc + 1) * 4);
+
+  return true;
 }
 
 std::string Pipeline::dump_regs() const {

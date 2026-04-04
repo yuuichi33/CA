@@ -6,7 +6,7 @@ namespace cpu {
 static constexpr uint32_t MSTATUS_MIE = (1u << 3);
 
 CSR::CSR()
-    : mstatus_(0), mepc_(0), mcause_(0), mtvec_(0), mie_timer_(false), mip_timer_(false) {}
+  : mstatus_(0), mepc_(0), mcause_(0), mtvec_(0), mie_timer_(false), mip_timer_(false), mie_uart_(false), mip_uart_(false) {}
 
 uint32_t CSR::read_mstatus() const { return mstatus_; }
 void CSR::write_mstatus(uint32_t v) { mstatus_ = v; }
@@ -37,6 +37,16 @@ bool CSR::get_mip_timer() const { return mip_timer_; }
 
 bool CSR::pending_timer_interrupt() const {
   return get_mstatus_mie() && mie_timer_ && mip_timer_;
+}
+
+void CSR::set_mie_uart(bool en) { mie_uart_ = en; }
+bool CSR::get_mie_uart() const { return mie_uart_; }
+
+void CSR::set_mip_uart(bool pending) { mip_uart_ = pending; }
+bool CSR::get_mip_uart() const { return mip_uart_; }
+
+bool CSR::pending_uart_interrupt() const {
+  return get_mstatus_mie() && mie_uart_ && mip_uart_;
 }
 
 } // namespace cpu

@@ -4,7 +4,7 @@ namespace periph {
 
 TimerMMIO::TimerMMIO(Timer* t) : timer_(t), mtimecmp_(0) {}
 
-uint32_t TimerMMIO::load32(uint32_t offset) const {
+uint32_t TimerMMIO::load32(uint32_t offset) {
   switch (offset) {
     case 0x00: return static_cast<uint32_t>(timer_->ticks() & 0xffffffffu);
     case 0x04: return static_cast<uint32_t>((timer_->ticks() >> 32) & 0xffffffffu);

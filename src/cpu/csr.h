@@ -30,6 +30,15 @@ public:
 
   // true if interrupt is pending and globally enabled
   bool pending_timer_interrupt() const;
+  
+  // UART interrupt controls
+  void set_mie_uart(bool en);
+  bool get_mie_uart() const;
+
+  void set_mip_uart(bool pending);
+  bool get_mip_uart() const;
+
+  bool pending_uart_interrupt() const;
 
 private:
   uint32_t mstatus_;
@@ -38,6 +47,8 @@ private:
   uint32_t mtvec_;
   bool mie_timer_;
   bool mip_timer_;
+  bool mie_uart_;
+  bool mip_uart_;
 };
 
 } // namespace cpu

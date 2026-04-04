@@ -8,7 +8,7 @@ namespace periph {
 class TimerMMIO : public mem::Device {
 public:
   explicit TimerMMIO(Timer* t);
-  uint32_t load32(uint32_t offset) const override;
+  uint32_t load32(uint32_t offset) override;
   void store32(uint32_t offset, uint32_t value) override;
 
 private:
