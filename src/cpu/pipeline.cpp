@@ -239,6 +239,13 @@ bool Pipeline::step() {
     else if (name == "SUB") alu_res = a - b;
     else if (name == "ADDI") alu_res = a + static_cast<uint32_t>(prev_idex.inst.imm);
     else if (name == "SLLI") alu_res = a << (static_cast<uint32_t>(prev_idex.inst.imm) & 0x1f);
+    else if (name == "SLTI") alu_res = (static_cast<int32_t>(a) < static_cast<int32_t>(prev_idex.inst.imm)) ? 1u : 0u;
+    else if (name == "SLTIU") alu_res = (a < static_cast<uint32_t>(prev_idex.inst.imm)) ? 1u : 0u;
+    else if (name == "XORI") alu_res = a ^ static_cast<uint32_t>(prev_idex.inst.imm);
+    else if (name == "SRLI") alu_res = a >> (static_cast<uint32_t>(prev_idex.inst.imm) & 0x1f);
+    else if (name == "SRAI") alu_res = static_cast<uint32_t>(static_cast<int32_t>(a) >> (static_cast<uint32_t>(prev_idex.inst.imm) & 0x1f));
+    else if (name == "ORI") alu_res = a | static_cast<uint32_t>(prev_idex.inst.imm);
+    else if (name == "ANDI") alu_res = a & static_cast<uint32_t>(prev_idex.inst.imm);
     else if (name == "SLL") alu_res = a << (b & 0x1f);
     else if (name == "SRL") alu_res = a >> (b & 0x1f);
     else if (name == "SRA") alu_res = static_cast<uint32_t>(static_cast<int32_t>(a) >> (b & 0x1f));
@@ -248,6 +255,19 @@ bool Pipeline::step() {
     else if (name == "SLT") alu_res = (static_cast<int32_t>(a) < static_cast<int32_t>(b)) ? 1u : 0u;
     else if (name == "SLTU") alu_res = (a < b) ? 1u : 0u;
     else if (name == "LW" || name == "SW" || name == "LB" || name == "LBU" || name == "LH" || name == "LHU" || name == "SB" || name == "SH") alu_res = a + static_cast<uint32_t>(prev_idex.inst.imm);
+    else if (name == "CSRRW" || name == "CSRRS" || name == "CSRRC" || name == "CSRRWI" || name == "CSRRSI" || name == "CSRRCI") {
+      uint32_t csr_addr = prev_idex.inst.csr;
+      uint32_t old = csr_.read(csr_addr);
+      uint32_t newv = old;
+      if (name == "CSRRW") newv = a;
+      else if (name == "CSRRWI") newv = prev_idex.inst.rs1; // zimm in rs1 field
+      else if (name == "CSRRS") newv = old | a;
+      else if (name == "CSRRSI") newv = old | prev_idex.inst.rs1;
+      else if (name == "CSRRC") newv = old & ~a;
+      else if (name == "CSRRCI") newv = old & ~prev_idex.inst.rs1;
+      csr_.write(csr_addr, newv);
+      alu_res = old;
+    }
     else if (name == "BEQ") {
       if (a == b) { branch_taken = true; branch_target = prev_idex.pc + prev_idex.inst.imm; }
     } else if (name == "BNE") {
@@ -269,7 +289,7 @@ bool Pipeline::step() {
     exmem_.rs2_val = b;
     exmem_.rd = prev_idex.inst.rd;
     // determine if instruction writes back
-    exmem_.write_back = (name == "ADD" || name == "SUB" || name == "ADDI" || name == "SLLI" || name == "SLL" || name == "SRL" || name == "SRA" || name == "OR" || name == "AND" || name == "XOR" || name == "SLT" || name == "SLTU" || name == "LW" || name == "LB" || name == "LH" || name == "LBU" || name == "LHU" || name == "JAL" || name == "JALR" || name == "LUI" || name == "AUIPC");
+    exmem_.write_back = (name == "ADD" || name == "SUB" || name == "ADDI" || name == "SLLI" || name == "SLL" || name == "SRL" || name == "SRA" || name == "OR" || name == "AND" || name == "XOR" || name == "SLT" || name == "SLTU" || name == "LW" || name == "LB" || name == "LH" || name == "LBU" || name == "LHU" || name == "JAL" || name == "JALR" || name == "LUI" || name == "AUIPC" || name == "SLTI" || name == "SLTIU" || name == "XORI" || name == "SRLI" || name == "SRAI" || name == "ORI" || name == "ANDI" || name == "CSRRW" || name == "CSRRS" || name == "CSRRC" || name == "CSRRWI" || name == "CSRRSI" || name == "CSRRCI");
 
     if (branch_taken) {
       pc_ = branch_target;

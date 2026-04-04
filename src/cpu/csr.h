@@ -40,6 +40,10 @@ public:
 
   bool pending_uart_interrupt() const;
 
+  // generic CSR read/write for supported addresses
+  uint32_t read(uint32_t csr_addr) const;
+  void write(uint32_t csr_addr, uint32_t value);
+
 private:
   uint32_t mstatus_;
   uint32_t mepc_;

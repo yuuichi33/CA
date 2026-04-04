@@ -20,6 +20,33 @@ void CSR::write_mcause(uint32_t v) { mcause_ = v; }
 uint32_t CSR::read_mtvec() const { return mtvec_; }
 void CSR::write_mtvec(uint32_t v) { mtvec_ = v; }
 
+uint32_t CSR::read(uint32_t csr_addr) const {
+  switch (csr_addr) {
+    case 0x300: return read_mstatus();
+    case 0x304: {
+      uint32_t v = 0;
+      if (mie_timer_) v |= (1u << 7);
+      if (mie_uart_) v |= (1u << 3);
+      return v;
+    }
+    case 0x305: return read_mtvec();
+    case 0x341: return read_mepc();
+    case 0x342: return read_mcause();
+    default: return 0;
+  }
+}
+
+void CSR::write(uint32_t csr_addr, uint32_t value) {
+  switch (csr_addr) {
+    case 0x300: write_mstatus(value); break;
+    case 0x304: set_mie_timer((value >> 7) & 1u); set_mie_uart((value >> 3) & 1u); break;
+    case 0x305: write_mtvec(value); break;
+    case 0x341: write_mepc(value); break;
+    case 0x342: write_mcause(value); break;
+    default: break;
+  }
+}
+
 void CSR::set_mstatus_mie(bool en) {
   if (en)
     mstatus_ |= MSTATUS_MIE;

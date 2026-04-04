@@ -44,8 +44,12 @@ Decoded decode(uint32_t inst) {
       else if (d.funct3 == 0x2) d.name = "SLTI";
       else if (d.funct3 == 0x3) d.name = "SLTIU";
       else if (d.funct3 == 0x4) d.name = "XORI";
-      else if (d.funct3 == 0x5) d.name = "SRLI/SRAI";
-      else if (d.funct3 == 0x6) d.name = "ORI";
+      else if (d.funct3 == 0x5) {
+        // shift right immediate: distinguish logical vs arithmetic by funct7
+        if (d.funct7 == 0x00) d.name = "SRLI";
+        else if (d.funct7 == 0x20) d.name = "SRAI";
+        else d.name = "SRLI";
+      } else if (d.funct3 == 0x6) d.name = "ORI";
       else if (d.funct3 == 0x7) d.name = "ANDI";
       break;
 
@@ -122,8 +126,16 @@ Decoded decode(uint32_t inst) {
       d.imm = sign_extend(inst >> 20, 12);
         {
           uint32_t funct12 = (inst >> 20) & 0xfff;
+          d.csr = (inst >> 20) & 0xfff;
+          d.zimm = d.rs1; // for CSR immediate variants
           if (inst == 0x00000073) d.name = "ECALL";
           else if (funct12 == 0x302) d.name = "MRET";
+          else if (d.funct3 == 0x1) d.name = "CSRRW";
+          else if (d.funct3 == 0x2) d.name = "CSRRS";
+          else if (d.funct3 == 0x3) d.name = "CSRRC";
+          else if (d.funct3 == 0x5) d.name = "CSRRWI";
+          else if (d.funct3 == 0x6) d.name = "CSRRSI";
+          else if (d.funct3 == 0x7) d.name = "CSRRCI";
           else d.name = "SYSTEM";
         }
       break;

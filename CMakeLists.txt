@@ -59,3 +59,11 @@ add_test(NAME load_store_byte_half_test COMMAND test_load_store_byte_half)
 add_executable(test_pipeline_load_store_instr tests/test_pipeline_load_store_instr.cpp)
 target_link_libraries(test_pipeline_load_store_instr PRIVATE cpu isa)
 add_test(NAME pipeline_load_store_instr_test COMMAND test_pipeline_load_store_instr)
+
+add_executable(test_isa_immediates tests/test_isa_immediates.cpp)
+target_link_libraries(test_isa_immediates PRIVATE cpu isa)
+add_test(NAME isa_immediates_test COMMAND test_isa_immediates)
+
+add_executable(test_csrs tests/test_csrs.cpp)
+target_link_libraries(test_csrs PRIVATE cpu isa)
+add_test(NAME csrs_test COMMAND test_csrs)

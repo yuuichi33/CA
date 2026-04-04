@@ -15,6 +15,8 @@ struct Decoded {
   uint32_t funct3 = 0;
   uint32_t funct7 = 0;
   int32_t imm = 0;
+  uint32_t csr = 0; // CSR address for SYSTEM/CSR instructions (bits 31:20)
+  uint32_t zimm = 0; // zero-extended immediate for CSR immediate variants (rs1 field)
   std::string name;
 };
 
