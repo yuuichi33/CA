@@ -16,8 +16,14 @@ Pipeline::Pipeline(const std::vector<uint32_t>& program, size_t mem_size) : prog
   reset();
   // instantiate caches
   // default miss latency set to 0 for tests; can be tuned later
-  icache_ = new SimpleCache(&mem_, 16 * 1024, 64, 0);
-  dcache_ = new SimpleCache(&mem_, 16 * 1024, 64, 0);
+  // use a configurable 4-way set-associative cache by default
+  CacheConfig ccfg;
+  ccfg.cache_size = 16 * 1024;
+  ccfg.line_size = 64;
+  ccfg.associativity = 4;
+  ccfg.miss_latency = 0;
+  icache_ = new SimpleCache(&mem_, ccfg);
+  dcache_ = new SimpleCache(&mem_, ccfg);
   // map timer MMIO region (keep pointer for possible future use)
   constexpr uint32_t TIMER_MMIO_BASE = 0x10000000u;
   timer_mmio_ = new periph::TimerMMIO(&timer_);
@@ -327,6 +333,12 @@ bool Pipeline::step() {
         else if (name == "CSRRCI") newv = old & ~prev_idex.inst.rs1;
         csr_.write(csr_addr, newv);
         alu_res = old;
+        // if SATP changed, flush TLB and perform conservative cache maintenance
+        if (csr_addr == 0x180) {
+          if (mmu_) mmu_->flush_tlb();
+          if (icache_) icache_->invalidate_all();
+          if (dcache_) dcache_->flush_all();
+        }
       } catch (const CSR::CSRException &ex) {
         uint32_t vec = csr_.handle_trap(ex.cause(), 0u, prev_idex.pc, false);
         pc_ = vec;
@@ -672,6 +684,9 @@ void Pipeline::set_verbose(bool v) {
 
 void Pipeline::sfence_vma(uint32_t vaddr, uint32_t asid) {
   if (mmu_) mmu_->sfence_vma(vaddr, asid);
+  // conservative cache maintenance: invalidate instruction cache and flush data cache
+  if (icache_) icache_->invalidate_all();
+  if (dcache_) dcache_->flush_all();
 }
 
 unsigned Pipeline::tlb_count() const {
