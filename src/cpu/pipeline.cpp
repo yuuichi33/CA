@@ -52,6 +52,8 @@ void Pipeline::reset() {
 
 bool Pipeline::step() {
   last_stall_ = false;
+  // each call to step represents one cycle
+  ++cycles_;
 
   // if currently stalling for cache miss, countdown
   if (stall_counter_ > 0) {
@@ -78,6 +80,9 @@ bool Pipeline::step() {
   IDEXReg prev_idex = idex_;
   EXMEMReg prev_exmem = exmem_;
   MEMWBReg prev_memwb = memwb_;
+
+  // count retired instruction if one was in MEM/WB at start of cycle
+  if (prev_memwb.valid) ++instrs_;
 
   // ------------------ WB stage ------------------
   if (prev_memwb.valid && prev_memwb.write_back && prev_memwb.rd != 0) {
@@ -524,7 +529,7 @@ bool Pipeline::load_elf(const std::string& path, const std::vector<std::string>&
   pc_ = entry;
   // if ELF provided a `tohost` symbol, map semihosting device there
   if (info.tohost != 0) {
-    std::cerr << "load_elf: detected tohost at 0x" << std::hex << info.tohost << std::dec << ", mapping ToHostMMIO\n";
+    if (verbose_) std::cerr << "load_elf: detected tohost at 0x" << std::hex << info.tohost << std::dec << ", mapping ToHostMMIO\n";
     mem_.map_device(info.tohost, 8, new periph::ToHostMMIO(true));
   }
 

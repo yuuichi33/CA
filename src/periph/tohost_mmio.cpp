@@ -2,6 +2,9 @@
 #include <iostream>
 #include <cstdlib>
 
+// report to host via atomic instead of exiting
+std::atomic<int> periph::tohost_exit_code{-1};
+
 namespace periph {
 
 ToHostMMIO::ToHostMMIO(bool exit_on_write) : val_(0), exit_on_write_(exit_on_write) {}
@@ -18,13 +21,12 @@ void ToHostMMIO::store32(uint32_t offset, uint32_t value) {
   } else if (offset == 4) {
     val_ = (val_ & 0xffffffffULL) | (static_cast<uint64_t>(value) << 32);
   }
-  // if non-zero, print and optionally exit to signal host
+  // if non-zero, print to stderr and set global atomic exit code; do not call exit()
   if (val_ != 0) {
-    std::cout << "TOHOST: 0x" << std::hex << val_ << std::dec << std::endl;
+    std::cerr << "TOHOST: 0x" << std::hex << val_ << std::dec << std::endl;
     if (exit_on_write_) {
       // convention: treat value==1 as success (exit 0), otherwise non-zero -> exit code 1
-      if (val_ == 1) std::exit(0);
-      else std::exit(1);
+      periph::tohost_exit_code.store(val_ == 1 ? 0 : 1);
     }
   }
 }

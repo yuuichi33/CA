@@ -36,4 +36,11 @@ private:
   uint32_t access_counter_ = 0;
   bool write_back_ = false;
   bool write_allocate_ = false;
+  // statistics
+  uint64_t accesses_ = 0;
+  uint64_t hits_ = 0;
+public:
+  uint64_t accesses() const { return accesses_; }
+  uint64_t hits() const { return hits_; }
+  void reset_stats() { accesses_ = hits_ = 0; }
 };

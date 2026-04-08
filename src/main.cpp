@@ -5,6 +5,8 @@
 #include <thread>
 #include <chrono>
 #include <fstream>
+#include <iomanip>
+#include "periph/tohost_mmio.h"
 #include "cpu/pipeline.h"
 
 static std::atomic<bool> running{true};
@@ -25,6 +27,7 @@ int main(int argc, char** argv) {
   bool run_cycles_set = false;
   bool verbose = false;
   bool step_mode = false;
+  bool quiet = false;
   std::vector<std::string> cli_argv;
   std::vector<std::string> cli_envp;
 
@@ -48,6 +51,8 @@ int main(int argc, char** argv) {
       timer_enable = true;
     } else if (a == "--verbose" || a == "-v") {
       verbose = true;
+    } else if (a == "--quiet" || a == "-q") {
+      quiet = true;
     } else if (a == "--step" || a == "-s") {
       step_mode = true;
     } else if (a == "--arg" || a == "-a") {
@@ -64,17 +69,18 @@ int main(int argc, char** argv) {
     }
   }
 
-  std::cout << "myCPU simulator starting" << (enable_uart_bridge ? " with UART stdin bridge" : "") << "\n";
+  if (!quiet) std::cout << "myCPU simulator starting" << (enable_uart_bridge ? " with UART stdin bridge" : "") << "\n";
 
   std::signal(SIGINT, sigint_handler);
 
   cpu::Pipeline p;
+  p.set_verbose(!quiet);
   if (!elf_path.empty()) {
     if (!p.load_elf(elf_path, cli_argv, cli_envp)) {
       std::cerr << "failed to load ELF: " << elf_path << "\n";
       return 1;
     }
-    std::cout << "loaded ELF: " << elf_path << " entry PC=" << p.pc() << "\n";
+    if (!quiet) std::cout << "loaded ELF: " << elf_path << " entry PC=" << p.pc() << "\n";
   }
 
   // apply CLI-configured CSRs/devices
@@ -87,27 +93,29 @@ int main(int argc, char** argv) {
   if (enable_uart_bridge) p.start_uart_stdin_bridge();
 
   // log CLI-provided argv/envp to runtime log
-  if (cli_argv.empty() && cli_envp.empty()) {
-    std::cout << "runtime: no args/env\n";
-  } else {
-    if (!cli_argv.empty()) {
-      std::cout << "runtime argv=[";
-      for (size_t i = 0; i < cli_argv.size(); ++i) {
-        if (i) std::cout << ", ";
-        std::cout << '"' << cli_argv[i] << '"';
+  if (!quiet) {
+    if (cli_argv.empty() && cli_envp.empty()) {
+      std::cout << "runtime: no args/env\n";
+    } else {
+      if (!cli_argv.empty()) {
+        std::cout << "runtime argv=[";
+        for (size_t i = 0; i < cli_argv.size(); ++i) {
+          if (i) std::cout << ", ";
+          std::cout << '"' << cli_argv[i] << '"';
+        }
+        std::cout << "]";
       }
-      std::cout << "]";
-    }
-    if (!cli_envp.empty()) {
-      if (!cli_argv.empty()) std::cout << ' ';
-      std::cout << "runtime env=[";
-      for (size_t i = 0; i < cli_envp.size(); ++i) {
-        if (i) std::cout << ", ";
-        std::cout << '"' << cli_envp[i] << '"';
+      if (!cli_envp.empty()) {
+        if (!cli_argv.empty()) std::cout << ' ';
+        std::cout << "runtime env=[";
+        for (size_t i = 0; i < cli_envp.size(); ++i) {
+          if (i) std::cout << ", ";
+          std::cout << '"' << cli_envp[i] << '"';
+        }
+        std::cout << "]";
       }
-      std::cout << "]";
+      std::cout << "\n";
     }
-    std::cout << "\n";
   }
 
   // main loop: step CPU until interrupted or cycles exhausted
@@ -127,6 +135,7 @@ int main(int argc, char** argv) {
   if (run_cycles_set) {
     for (uint64_t i = 0; i < run_cycles && running.load(); ++i) {
       p.step();
+      if (periph::tohost_exit_code.load() >= 0) { running.store(false); break; }
       if (verbose) std::cout << p.dump_regs() << "\n";
       if (step_mode) {
         std::cout << "(step) press Enter to continue, 'q' to quit\n";
@@ -137,6 +146,7 @@ int main(int argc, char** argv) {
   } else {
     while (running.load()) {
       p.step();
+      if (periph::tohost_exit_code.load() >= 0) { running.store(false); break; }
       if (verbose) std::cout << p.dump_regs() << "\n";
       if (step_mode) {
         std::cout << "(step) press Enter to continue, 'q' to quit\n";
@@ -148,6 +158,26 @@ int main(int argc, char** argv) {
     }
   }
 
-  std::cout << "myCPU simulator exiting" << std::endl;
-  return 0;
+  // If semihosting wrote an exit code, use it as process exit code
+  int tohost_rc = periph::tohost_exit_code.load();
+
+  // gather stats
+  uint64_t cycles = p.cycles();
+  uint64_t instrs = p.instrs();
+  double i_acc = static_cast<double>(p.icache_accesses());
+  double i_hits = static_cast<double>(p.icache_hits());
+  double i_pct = (i_acc > 0.0) ? (i_hits / i_acc * 100.0) : 0.0;
+  double d_acc = static_cast<double>(p.dcache_accesses());
+  double d_hits = static_cast<double>(p.dcache_hits());
+  double d_pct = (d_acc > 0.0) ? (d_hits / d_acc * 100.0) : 0.0;
+
+  // final single-line performance summary (always printed)
+  std::cout << "Cycles: " << cycles << ", Instrs: " << instrs
+            << ", I-Cache Hit: " << std::fixed << std::setprecision(2) << i_pct << "%"
+            << ", D-Cache Hit: " << std::fixed << std::setprecision(2) << d_pct << "%"
+            << std::endl;
+
+  if (!quiet) std::cout << "myCPU simulator exiting" << std::endl;
+
+  return (tohost_rc >= 0) ? tohost_rc : 0;
 }

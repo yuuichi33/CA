@@ -35,6 +35,7 @@ static inline uint32_t block_base_addr(uint32_t block, size_t line_size) {
 }
 
 std::pair<uint32_t, int> SimpleCache::load32(uint32_t addr) {
+  accesses_++;
   uint32_t block = addr / line_size_;
   size_t set_idx = block % num_sets_;
   uint32_t tag = block / num_sets_;
@@ -45,6 +46,7 @@ std::pair<uint32_t, int> SimpleCache::load32(uint32_t addr) {
   for (size_t way = 0; way < associativity_; ++way) {
     Line &line = set[way];
     if (line.valid && line.tag == tag) {
+      hits_++;
       uint32_t val;
       std::memcpy(&val, &line.data[offset], 4);
       line.lru = ++access_counter_;
@@ -95,6 +97,7 @@ std::pair<uint32_t, int> SimpleCache::load32(uint32_t addr) {
 }
 
 int SimpleCache::store32(uint32_t addr, uint32_t value) {
+  accesses_++;
   if (write_back_) {
     // write-back mode: update cache line and mark dirty on hit; allocate on miss depending on write_allocate_
     uint32_t block = addr / line_size_;
@@ -105,6 +108,7 @@ int SimpleCache::store32(uint32_t addr, uint32_t value) {
     for (size_t way = 0; way < associativity_; ++way) {
       Line &line = set[way];
       if (line.valid && line.tag == tag) {
+        hits_++;
         std::memcpy(&line.data[offset], &value, 4);
         line.dirty = true;
         line.lru = ++access_counter_;
@@ -167,6 +171,7 @@ int SimpleCache::store32(uint32_t addr, uint32_t value) {
     for (size_t way = 0; way < associativity_; ++way) {
       Line &line = set[way];
       if (line.valid && line.tag == tag) {
+        hits_++;
         std::memcpy(&line.data[offset], &value, 4);
         line.lru = ++access_counter_;
       }
@@ -176,6 +181,7 @@ int SimpleCache::store32(uint32_t addr, uint32_t value) {
 }
 
 std::pair<uint32_t, int> SimpleCache::load8(uint32_t addr) {
+  accesses_++;
   uint32_t block = addr / line_size_;
   size_t set_idx = block % num_sets_;
   uint32_t tag = block / num_sets_;
@@ -185,6 +191,7 @@ std::pair<uint32_t, int> SimpleCache::load8(uint32_t addr) {
   for (size_t way = 0; way < associativity_; ++way) {
     Line &line = set[way];
     if (line.valid && line.tag == tag) {
+      hits_++;
       line.lru = ++access_counter_;
       return {static_cast<uint32_t>(line.data[offset]), 0};
     }
@@ -231,6 +238,7 @@ std::pair<uint32_t, int> SimpleCache::load8(uint32_t addr) {
 }
 
 std::pair<uint32_t, int> SimpleCache::load16(uint32_t addr) {
+  accesses_++;
   uint32_t block = addr / line_size_;
   size_t set_idx = block % num_sets_;
   uint32_t tag = block / num_sets_;
@@ -240,6 +248,7 @@ std::pair<uint32_t, int> SimpleCache::load16(uint32_t addr) {
   for (size_t way = 0; way < associativity_; ++way) {
     Line &line = set[way];
     if (line.valid && line.tag == tag && offset + 1 < line_size_) {
+      hits_++;
       uint16_t v;
       std::memcpy(&v, &line.data[offset], 2);
       line.lru = ++access_counter_;
@@ -265,6 +274,7 @@ std::pair<uint32_t, int> SimpleCache::load16(uint32_t addr) {
 }
 
 int SimpleCache::store8(uint32_t addr, uint8_t value) {
+  accesses_++;
   if (write_back_) {
     uint32_t block = addr / line_size_;
     size_t set_idx = block % num_sets_;
@@ -275,6 +285,7 @@ int SimpleCache::store8(uint32_t addr, uint8_t value) {
     for (size_t way = 0; way < associativity_; ++way) {
       Line &line = set[way];
       if (line.valid && line.tag == tag) {
+        hits_++;
         line.data[offset] = value;
         line.dirty = true;
         line.lru = ++access_counter_;
@@ -346,6 +357,7 @@ int SimpleCache::store8(uint32_t addr, uint8_t value) {
 }
 
 int SimpleCache::store16(uint32_t addr, uint16_t value) {
+  accesses_++;
   if (write_back_) {
     uint32_t block = addr / line_size_;
     size_t set_idx = block % num_sets_;
@@ -358,6 +370,7 @@ int SimpleCache::store16(uint32_t addr, uint16_t value) {
         if (offset + 1 < line_size_) {
           std::memcpy(&line.data[offset], &value, 2);
         }
+        hits_++;
         line.dirty = true;
         line.lru = ++access_counter_;
         return 0;

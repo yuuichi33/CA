@@ -16,4 +16,8 @@ private:
   bool exit_on_write_ = true;
 };
 
+// global tohost exit code set by ToHostMMIO (>=0 means written)
+extern std::atomic<int> tohost_exit_code;
+
 } // namespace periph
+

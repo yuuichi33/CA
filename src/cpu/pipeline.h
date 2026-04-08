@@ -83,6 +83,14 @@ public:
   void sfence_vma(uint32_t vaddr, uint32_t asid);
   // debug: number of valid TLB entries
   unsigned tlb_count() const;
+  // performance counters access
+  uint64_t cycles() const { return cycles_; }
+  uint64_t instrs() const { return instrs_; }
+  // cache statistics
+  uint64_t icache_accesses() const { return icache_ ? icache_->accesses() : 0; }
+  uint64_t icache_hits() const { return icache_ ? icache_->hits() : 0; }
+  uint64_t dcache_accesses() const { return dcache_ ? dcache_->accesses() : 0; }
+  uint64_t dcache_hits() const { return dcache_ ? dcache_->hits() : 0; }
   // control verbose debug printing (for mmu)
   void set_verbose(bool v);
   std::string dump_regs() const;
@@ -108,6 +116,9 @@ private:
   MEMWBReg pending_memwb_;
   uint32_t pending_mem_value_ = 0;
   bool last_stall_ = false;
+  // performance counters
+  uint64_t cycles_ = 0;
+  uint64_t instrs_ = 0;
   // CSRs and timer
   cpu::CSR csr_;
   periph::Timer timer_;
