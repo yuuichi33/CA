@@ -190,11 +190,6 @@ camycpu/
     ├── test_all_nocache.log
     ├── test_all_nocache_fixed.log
     ├── rv32ui_collect.log
-    ├── bench_crash.log
-    ├── bench_crash2.log
-    ├── bench_debug.log
-    ├── gdb_bt.log
-    ├── gdb_throw_bt.log
     └── fail_debug/
         └── rv32ui-p-*_*.out
 ```
@@ -298,8 +293,6 @@ camycpu/
 - [tmp/test_all_cache.log](tmp/test_all_cache.log)、[tmp/test_all_nocache.log](tmp/test_all_nocache.log)：中间回归日志。
 - [tmp/test_all_cache_fixed.log](tmp/test_all_cache_fixed.log)、[tmp/test_all_nocache_fixed.log](tmp/test_all_nocache_fixed.log)：修复后全量 PASS 日志。
 - [tmp/rv32ui_collect.log](tmp/rv32ui_collect.log)：历史性能收集日志。
-- [tmp/bench_crash.log](tmp/bench_crash.log)、[tmp/bench_crash2.log](tmp/bench_crash2.log)、[tmp/bench_debug.log](tmp/bench_debug.log)：基准排障日志。
-- [tmp/gdb_bt.log](tmp/gdb_bt.log)、[tmp/gdb_throw_bt.log](tmp/gdb_throw_bt.log)：GDB 回溯日志。
 - [tmp/fail_debug](tmp/fail_debug)：4 个 cache-only 失败项的逐例对比日志目录。
 
 
