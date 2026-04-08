@@ -2,6 +2,7 @@
 #include "periph/timer_mmio.h"
 #include "periph/uart_mmio.h"
 #include "elf/elf_loader.h"
+#include "periph/tohost_mmio.h"
 #include <sstream>
 #include <thread>
 #include <atomic>
@@ -509,6 +510,11 @@ bool Pipeline::load_elf(const std::string& path, const std::vector<std::string>&
   elf::LoadInfo info;
   if (!elf::load_elf(path, mem_, entry, &info)) return false;
   pc_ = entry;
+  // if ELF provided a `tohost` symbol, map semihosting device there
+  if (info.tohost != 0) {
+    std::cerr << "load_elf: detected tohost at 0x" << std::hex << info.tohost << std::dec << ", mapping ToHostMMIO\n";
+    mem_.map_device(info.tohost, 8, new periph::ToHostMMIO(true));
+  }
 
   // prepare argv/envp
   std::vector<std::string> argv = argv_in;
