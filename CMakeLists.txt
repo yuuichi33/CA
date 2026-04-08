@@ -79,3 +79,7 @@ add_test(NAME privilege_security_test COMMAND test_privilege_security)
 add_executable(test_trap_delegation tests/test_trap_delegation.cpp)
 target_link_libraries(test_trap_delegation PRIVATE cpu isa)
 add_test(NAME trap_delegation_test COMMAND test_trap_delegation)
+
+add_executable(test_sfence_vma tests/test_sfence_vma.cpp)
+target_link_libraries(test_sfence_vma PRIVATE cpu isa)
+add_test(NAME sfence_vma_test COMMAND test_sfence_vma)

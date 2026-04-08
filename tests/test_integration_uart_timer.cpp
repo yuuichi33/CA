@@ -15,8 +15,6 @@ int main() {
 
   Pipeline p(prog);
 
-  // enable verbose debug for integration debugging
-  p.set_verbose(true);
 
   // install a minimal mtvec handler (MRET) so the trap handler returns and
   // re-enables interrupts; MRET encoding = 0x30200073

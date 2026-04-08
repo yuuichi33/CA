@@ -337,6 +337,20 @@ bool Pipeline::step() {
         return false;
       }
     }
+    else if (name == "SFENCE.VMA") {
+      // SFENCE.VMA rs1=virtual-address, rs2=asid
+      int priv = csr_.get_privilege();
+      if (priv == 0) {
+        // illegal in U-mode
+        uint32_t vec = csr_.handle_trap(2u, 0u, prev_idex.pc, false);
+        pc_ = vec;
+        ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
+        return false;
+      }
+      uint32_t vaddr = a; // rs1_val
+      uint32_t asid = b;  // rs2_val
+      if (mmu_) mmu_->sfence_vma(vaddr, asid);
+    }
     else if (name == "BEQ") {
       if (a == b) { branch_taken = true; branch_target = prev_idex.pc + prev_idex.inst.imm; }
     } else if (name == "BNE") {
@@ -648,6 +662,14 @@ bool Pipeline::mmu_map_4k(uint32_t vaddr, uint32_t paddr, uint32_t pte_flags) {
 void Pipeline::set_verbose(bool v) {
   verbose_ = v;
   if (mmu_) mmu_->set_verbose(v);
+}
+
+void Pipeline::sfence_vma(uint32_t vaddr, uint32_t asid) {
+  if (mmu_) mmu_->sfence_vma(vaddr, asid);
+}
+
+unsigned Pipeline::tlb_count() const {
+  return mmu_ ? mmu_->tlb_count() : 0u;
 }
 
 } // namespace cpu

@@ -79,6 +79,10 @@ public:
   mem::Memory& memory() { return mem_; }
   // helper to create a 4k page table mapping vaddr -> paddr with given PTE flags
   bool mmu_map_4k(uint32_t vaddr, uint32_t paddr, uint32_t pte_flags);
+  // explicit API to perform SFENCE.VMA (tests and tools can call this)
+  void sfence_vma(uint32_t vaddr, uint32_t asid);
+  // debug: number of valid TLB entries
+  unsigned tlb_count() const;
   // control verbose debug printing (for mmu)
   void set_verbose(bool v);
   std::string dump_regs() const;
