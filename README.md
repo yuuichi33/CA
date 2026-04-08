@@ -59,7 +59,7 @@ ctest --output-on-failure
 for t in ./test_*; do [ -x "$t" ] || continue; echo "=== $t ==="; "$t" || exit 1; done
 ```
 
-当前仓库包含 16+ 个单元测试，覆盖译码、转发、流水线、MMU、TLB、CSR/特权、安全性检查、外设集成与 SFENCE.VMA 等（测试文件位于 `tests/`，构建结果在 `build/`）。
+当前仓库包含 17 个单元测试，覆盖译码、转发、流水线、MMU、TLB、CSR/特权、安全性检查、外设集成与 SFENCE.VMA 等（测试文件位于 `tests/`，构建结果在 `build/`）。
 
 官方 ISA 测试（rv32ui）
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -143,13 +143,3 @@ cmake --build build -j
 - ELF 加载与符号检测（tohost）：`src/elf/elf_loader.cpp`
 - Semihost/tohost 实现：`src/periph/tohost_mmio.cpp`
 
-贡献 & 联系
-------------
-
-欢迎提交 Issue 或 PR。建议在 PR 中包含复现步骤、测试日志以及所修改的目标模块单元测试。
-
-许可
-----
-请查阅仓库根目录的 LICENSE 文件（如无，请在使用前添加合适许可证）。
-
-感谢使用 myCPU —— 这是一个面向教学与原型验证的简洁模拟器实现，欢迎改进与扩展。
