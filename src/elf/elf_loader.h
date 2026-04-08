@@ -14,6 +14,12 @@ struct LoadInfo {
 	uint32_t phnum = 0;
 	// load base for ET_DYN (0 for ET_EXEC)
 	uint32_t base = 0;
+
+	// optional semihosting symbols discovered in symbol table
+	uint32_t tohost = 0;
+	uint32_t fromhost = 0;
+	// optional test entry symbol (e.g. test_2) for riscv-tests startup stubs
+	uint32_t test_entry = 0;
 };
 
 // Load a 32-bit little-endian ELF file into `mem`.

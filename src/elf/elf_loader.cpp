@@ -159,6 +159,67 @@ bool load_elf(const std::string& path, mem::Memory& mem, uint32_t& entry, LoadIn
     out->phent = e_phentsize;
     out->phnum = e_phnum;
     out->base = base;
+    // Try to locate semihosting symbols (tohost/fromhost) by scanning section symbol tables
+    out->tohost = 0;
+    out->fromhost = 0;
+    // section header table
+    uint32_t e_shoff = read_u32_le(e + 32);
+    uint16_t e_shentsize = read_u16_le(e + 46);
+    uint16_t e_shnum = read_u16_le(e + 48);
+    uint16_t e_shstrndx = read_u16_le(e + 50);
+    if (e_shoff != 0 && e_shnum != 0 && e_shoff + (size_t)e_shentsize * e_shnum <= buf.size() && e_shstrndx < e_shnum) {
+      const uint8_t* shdrs = buf.data() + e_shoff;
+      // read section header string table
+      const uint8_t* shstr_sh = shdrs + (size_t)e_shentsize * e_shstrndx;
+      uint32_t shstr_off = read_u32_le(shstr_sh + 16);
+      uint32_t shstr_size = read_u32_le(shstr_sh + 20);
+      if (shstr_off + shstr_size <= buf.size()) {
+        const uint8_t* shstr = buf.data() + shstr_off;
+        // iterate sections to find symbol tables
+        for (unsigned si = 0; si < e_shnum; ++si) {
+          const uint8_t* sh = shdrs + (size_t)e_shentsize * si;
+          uint32_t sh_name = read_u32_le(sh + 0);
+          uint32_t sh_type = read_u32_le(sh + 4);
+          uint32_t sh_offset = read_u32_le(sh + 16);
+          uint32_t sh_size = read_u32_le(sh + 20);
+          uint32_t sh_link = read_u32_le(sh + 24);
+          uint32_t sh_entsize = read_u32_le(sh + 36);
+          const char* secname = (sh_name < shstr_size) ? reinterpret_cast<const char*>(shstr + sh_name) : "";
+          if (sh_type == 2u || sh_type == 11u) { // SHT_SYMTAB=2 or SHT_DYNSYM=11
+            // string table for this symtab is at section index sh_link
+            if (sh_link >= e_shnum) continue;
+            const uint8_t* str_sh = shdrs + (size_t)e_shentsize * sh_link;
+            uint32_t str_off = read_u32_le(str_sh + 16);
+            uint32_t str_size = read_u32_le(str_sh + 20);
+            if (sh_offset + sh_size > buf.size() || str_off + str_size > buf.size()) continue;
+            const uint8_t* symtab = buf.data() + sh_offset;
+            const uint8_t* strtab = buf.data() + str_off;
+            uint32_t nents = sh_entsize ? static_cast<uint32_t>(sh_size / sh_entsize) : 0u;
+            for (uint32_t j = 0; j < nents; ++j) {
+              const uint8_t* sym = symtab + (size_t)j * sh_entsize;
+              if ((size_t)(sym + 16 - buf.data()) > buf.size()) break;
+              uint32_t st_name = read_u32_le(sym + 0);
+              uint32_t st_value = read_u32_le(sym + 4);
+              // st_size at +8 (ignored), st_info at +12
+              const char* sname = (st_name < str_size) ? reinterpret_cast<const char*>(strtab + st_name) : "";
+              if (sname && sname[0]) {
+                std::string name(sname);
+                if (name == "tohost") {
+                  out->tohost = is_dso ? (base + st_value) : st_value;
+                } else if (name == "fromhost") {
+                  out->fromhost = is_dso ? (base + st_value) : st_value;
+                } else if (out->test_entry == 0 && name.rfind("test_", 0) == 0) {
+                  // pick up a test entry symbol if present (riscv-tests stubs use test_2 etc)
+                  out->test_entry = is_dso ? (base + st_value) : st_value;
+                }
+                if (out->tohost != 0 && out->fromhost != 0 && out->test_entry != 0) break;
+              }
+            }
+            if (out->tohost != 0 && out->fromhost != 0) break;
+          }
+        }
+      }
+    }
   }
   return true;
 }
