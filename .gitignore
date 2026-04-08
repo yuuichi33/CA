@@ -4,3 +4,13 @@
 *.exe
 .vscode/
 *.swp
+
+# Temporary runtime/debug artifacts
+/tmp/*.log
+/tmp/fail_debug/
+/tmp/project_paths_depth3.txt
+/tmp/decoded_instrs.txt
+/tmp/gen_speedup_report.py
+
+# CTest runtime artifacts
+/Testing/

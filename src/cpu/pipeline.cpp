@@ -47,31 +47,35 @@ void Pipeline::reset() {
   exmem_ = EXMEMReg();
   memwb_ = MEMWBReg();
   regs_ = RegisterFile();
+  stall_remaining_ = 0;
+  stall_kind_ = StallKind::None;
   last_stall_ = false;
 }
 
 bool Pipeline::step() {
+  constexpr int kCacheMissStallCycles = 10;
   last_stall_ = false;
   // each call to step represents one cycle
   ++cycles_;
 
-  // if currently stalling for cache miss, countdown
-  if (stall_counter_ > 0) {
-    --stall_counter_;
-    if (stall_counter_ == 0) {
-      if (stall_kind_ == StallKind::If) {
-        // commit pending IF fetch
-        ifid_.inst = isa::decode(pending_if_word_);
-        ifid_.pc = pending_if_pc_;
-        ifid_.valid = true;
-        stall_kind_ = StallKind::None;
-      } else if (stall_kind_ == StallKind::MemLoad) {
-        // commit pending memory load into memwb_
-        pending_memwb_.mem_data = pending_mem_value_;
-        memwb_ = pending_memwb_;
-        stall_kind_ = StallKind::None;
-      }
-    }
+  // During a cache miss stall, only advance cycle counter and countdown.
+  if (stall_remaining_ > 0) {
+    --stall_remaining_;
+    return true;
+  }
+
+  // Once stall countdown completes, materialize the pending cache result.
+  if (stall_kind_ == StallKind::If) {
+    ifid_.inst = isa::decode(pending_if_word_);
+    ifid_.pc = pending_if_pc_;
+    ifid_.valid = true;
+    stall_kind_ = StallKind::None;
+    return true;
+  }
+  if (stall_kind_ == StallKind::MemLoad) {
+    pending_memwb_.mem_data = pending_mem_value_;
+    memwb_ = pending_memwb_;
+    stall_kind_ = StallKind::None;
     return true;
   }
 
@@ -143,15 +147,31 @@ bool Pipeline::step() {
         ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
         return false;
       }
-      auto res = dcache_->load32(phys);
-      if (res.second == 0) {
-        memwb_.mem_data = res.first;
+      bool is_mmio = mem_.is_mapped_device_range(phys, 4);
+      bool aligned = ((phys & 0x3u) == 0);
+      bool use_dcache = dcache_ && !is_mmio && aligned;
+      if (use_dcache) {
+        auto res = dcache_->load32(phys);
+        if (res.second == 0) {
+          memwb_.mem_data = res.first;
+        } else {
+          stall_remaining_ = kCacheMissStallCycles;
+          stall_kind_ = StallKind::MemLoad;
+          pending_memwb_ = memwb_;
+          pending_mem_value_ = res.first;
+          // Keep younger stages frozen, but clear current EX/MEM to avoid replaying this load.
+          exmem_.valid = false;
+          return true;
+        }
       } else {
-        stall_counter_ = res.second;
-        stall_kind_ = StallKind::MemLoad;
-        pending_memwb_ = memwb_;
-        pending_mem_value_ = res.first;
-        return true;
+        if (dcache_ && !is_mmio && !aligned) {
+          // Direct misaligned read must observe prior dirty cache data.
+          dcache_->flush_all();
+        }
+        memwb_.mem_data = mem_.load32(phys);
+        if (!dcache_ && uncached_latency_ > 0 && !mem_.is_mapped_device_range(phys, 4)) {
+          cycles_ += static_cast<uint64_t>(uncached_latency_);
+        }
       }
     } else if (mname == "LB" || mname == "LBU") {
       uint32_t phys = prev_exmem.alu_result;
@@ -162,21 +182,42 @@ bool Pipeline::step() {
         ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
         return false;
       }
-      auto res = dcache_->load8(phys);
-      if (res.second == 0) {
-        uint32_t byte = res.first & 0xffu;
+      if (dcache_ && !mem_.is_mapped_device_range(phys, 1)) {
+        auto res = dcache_->load8(phys);
+        if (res.second == 0) {
+          uint32_t byte = res.first & 0xffu;
+          if (mname == "LB") {
+            int32_t sval = static_cast<int32_t>(static_cast<int8_t>(byte & 0xff));
+            memwb_.mem_data = static_cast<uint32_t>(sval);
+          } else {
+            memwb_.mem_data = byte;
+          }
+        } else {
+          stall_remaining_ = kCacheMissStallCycles;
+          stall_kind_ = StallKind::MemLoad;
+          pending_memwb_ = memwb_;
+          uint32_t byte = res.first & 0xffu;
+          if (mname == "LB") {
+            int32_t sval = static_cast<int32_t>(static_cast<int8_t>(byte & 0xff));
+            pending_mem_value_ = static_cast<uint32_t>(sval);
+          } else {
+            pending_mem_value_ = byte;
+          }
+          // Keep younger stages frozen, but clear current EX/MEM to avoid replaying this load.
+          exmem_.valid = false;
+          return true;
+        }
+      } else {
+        uint32_t byte = mem_.load8(phys);
         if (mname == "LB") {
           int32_t sval = static_cast<int32_t>(static_cast<int8_t>(byte & 0xff));
           memwb_.mem_data = static_cast<uint32_t>(sval);
         } else {
           memwb_.mem_data = byte;
         }
-      } else {
-        stall_counter_ = res.second;
-        stall_kind_ = StallKind::MemLoad;
-        pending_memwb_ = memwb_;
-        pending_mem_value_ = res.first & 0xffu;
-        return true;
+        if (!dcache_ && uncached_latency_ > 0 && !mem_.is_mapped_device_range(phys, 1)) {
+          cycles_ += static_cast<uint64_t>(uncached_latency_);
+        }
       }
     } else if (mname == "LH" || mname == "LHU") {
       uint32_t phys = prev_exmem.alu_result;
@@ -187,21 +228,49 @@ bool Pipeline::step() {
         ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
         return false;
       }
-      auto res = dcache_->load16(phys);
-      if (res.second == 0) {
-        uint32_t half = res.first & 0xffffu;
+      bool is_mmio = mem_.is_mapped_device_range(phys, 2);
+      bool aligned = ((phys & 0x1u) == 0);
+      bool use_dcache = dcache_ && !is_mmio && aligned;
+      if (use_dcache) {
+        auto res = dcache_->load16(phys);
+        if (res.second == 0) {
+          uint32_t half = res.first & 0xffffu;
+          if (mname == "LH") {
+            int32_t sval = static_cast<int32_t>(static_cast<int16_t>(half & 0xffff));
+            memwb_.mem_data = static_cast<uint32_t>(sval);
+          } else {
+            memwb_.mem_data = half;
+          }
+        } else {
+          stall_remaining_ = kCacheMissStallCycles;
+          stall_kind_ = StallKind::MemLoad;
+          pending_memwb_ = memwb_;
+          uint32_t half = res.first & 0xffffu;
+          if (mname == "LH") {
+            int32_t sval = static_cast<int32_t>(static_cast<int16_t>(half & 0xffff));
+            pending_mem_value_ = static_cast<uint32_t>(sval);
+          } else {
+            pending_mem_value_ = half;
+          }
+          // Keep younger stages frozen, but clear current EX/MEM to avoid replaying this load.
+          exmem_.valid = false;
+          return true;
+        }
+      } else {
+        if (dcache_ && !is_mmio && !aligned) {
+          // Direct misaligned read must observe prior dirty cache data.
+          dcache_->flush_all();
+        }
+        uint32_t half = mem_.load16(phys);
         if (mname == "LH") {
           int32_t sval = static_cast<int32_t>(static_cast<int16_t>(half & 0xffff));
           memwb_.mem_data = static_cast<uint32_t>(sval);
         } else {
           memwb_.mem_data = half;
         }
-      } else {
-        stall_counter_ = res.second;
-        stall_kind_ = StallKind::MemLoad;
-        pending_memwb_ = memwb_;
-        pending_mem_value_ = res.first & 0xffffu;
-        return true;
+        if (!dcache_ && uncached_latency_ > 0 && !mem_.is_mapped_device_range(phys, 2)) {
+          cycles_ += static_cast<uint64_t>(uncached_latency_);
+        }
       }
     } else if (mname == "SW") {
       uint32_t phys = prev_exmem.alu_result;
@@ -212,7 +281,21 @@ bool Pipeline::step() {
         ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
         return false;
       }
-      dcache_->store32(phys, prev_exmem.rs2_val);
+      bool is_mmio = mem_.is_mapped_device_range(phys, 4);
+      bool aligned = ((phys & 0x3u) == 0);
+      bool use_dcache = dcache_ && !is_mmio && aligned;
+      if (use_dcache) dcache_->store32(phys, prev_exmem.rs2_val);
+      else {
+        mem_.store32(phys, prev_exmem.rs2_val);
+        if (dcache_ && !is_mmio && !aligned) {
+          // Keep cache coherent after direct misaligned write.
+          dcache_->flush_all();
+          dcache_->invalidate_all();
+        }
+      }
+      if (!dcache_ && uncached_latency_ > 0 && !is_mmio) {
+        cycles_ += static_cast<uint64_t>(uncached_latency_);
+      }
     } else if (mname == "SB") {
       uint32_t phys = prev_exmem.alu_result;
       uint32_t cause = 0;
@@ -222,7 +305,12 @@ bool Pipeline::step() {
         ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
         return false;
       }
-      dcache_->store8(phys, static_cast<uint8_t>(prev_exmem.rs2_val & 0xffu));
+      bool is_mmio = mem_.is_mapped_device_range(phys, 1);
+      if (dcache_ && !is_mmio) dcache_->store8(phys, static_cast<uint8_t>(prev_exmem.rs2_val & 0xffu));
+      else mem_.store8(phys, static_cast<uint8_t>(prev_exmem.rs2_val & 0xffu));
+      if (!dcache_ && uncached_latency_ > 0 && !is_mmio) {
+        cycles_ += static_cast<uint64_t>(uncached_latency_);
+      }
     } else if (mname == "SH") {
       uint32_t phys = prev_exmem.alu_result;
       uint32_t cause = 0;
@@ -232,7 +320,21 @@ bool Pipeline::step() {
         ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
         return false;
       }
-      dcache_->store16(phys, static_cast<uint16_t>(prev_exmem.rs2_val & 0xffffu));
+      bool is_mmio = mem_.is_mapped_device_range(phys, 2);
+      bool aligned = ((phys & 0x1u) == 0);
+      bool use_dcache = dcache_ && !is_mmio && aligned;
+      if (use_dcache) dcache_->store16(phys, static_cast<uint16_t>(prev_exmem.rs2_val & 0xffffu));
+      else {
+        mem_.store16(phys, static_cast<uint16_t>(prev_exmem.rs2_val & 0xffffu));
+        if (dcache_ && !is_mmio && !aligned) {
+          // Keep cache coherent after direct misaligned write.
+          dcache_->flush_all();
+          dcache_->invalidate_all();
+        }
+      }
+      if (!dcache_ && uncached_latency_ > 0 && !is_mmio) {
+        cycles_ += static_cast<uint64_t>(uncached_latency_);
+      }
     }
   }
 
@@ -369,10 +471,26 @@ bool Pipeline::step() {
       uint32_t asid = b;  // rs2_val
       if (mmu_) mmu_->sfence_vma(vaddr, asid);
     }
+    else if (name == "FENCE.I") {
+      // Make prior stores globally visible and force refetch of subsequent instructions.
+      if (dcache_) dcache_->flush_all();
+      if (icache_) icache_->invalidate_all();
+    }
+    else if (name == "FENCE") {
+      // Treated as an ordering no-op in this in-order simulator.
+    }
     else if (name == "BEQ") {
       if (a == b) { branch_taken = true; branch_target = prev_idex.pc + prev_idex.inst.imm; }
     } else if (name == "BNE") {
       if (a != b) { branch_taken = true; branch_target = prev_idex.pc + prev_idex.inst.imm; }
+    } else if (name == "BLT") {
+      if (static_cast<int32_t>(a) < static_cast<int32_t>(b)) { branch_taken = true; branch_target = prev_idex.pc + prev_idex.inst.imm; }
+    } else if (name == "BGE") {
+      if (static_cast<int32_t>(a) >= static_cast<int32_t>(b)) { branch_taken = true; branch_target = prev_idex.pc + prev_idex.inst.imm; }
+    } else if (name == "BLTU") {
+      if (a < b) { branch_taken = true; branch_target = prev_idex.pc + prev_idex.inst.imm; }
+    } else if (name == "BGEU") {
+      if (a >= b) { branch_taken = true; branch_target = prev_idex.pc + prev_idex.inst.imm; }
     } else if (name == "JAL") {
       alu_res = prev_idex.pc + 4;
       branch_taken = true;
@@ -396,6 +514,8 @@ bool Pipeline::step() {
       pc_ = branch_target;
       // flush IF/ID (will be handled by not fetching below)
       ifid_.valid = false;
+      // squash the already-fetched fall-through instruction in this cycle
+      prev_ifid.valid = false;
     }
   }
 
@@ -445,21 +565,42 @@ bool Pipeline::step() {
         memwb_.valid = false;
         return false;
       }
-      // use icache for instruction fetch (physical address)
-      auto res = icache_->load32(phys_pc);
-      if (res.second == 0) {
-        uint32_t word = res.first;
+      // use icache for instruction fetch (physical address) if configured
+      if (icache_) {
+        auto res = icache_->load32(phys_pc);
+        if (res.second == 0) {
+          uint32_t word = res.first;
+          // debug: print first few fetched instructions
+          static int __dbg_fetch = 0;
+          if (__dbg_fetch < 40) {
+            auto d = isa::decode(word);
+            std::cerr << "FETCH pc=0x" << std::hex << pc_ << " instr=" << d.name << std::dec << "\n";
+            ++__dbg_fetch;
+          }
+          ifid_.inst = isa::decode(word);
+          ifid_.pc = pc_;
+          ifid_.valid = true;
+          pc_ += 4;
+        } else {
+          // miss: stall pipeline for fixed 10 cycles then deliver
+          stall_remaining_ = kCacheMissStallCycles;
+          stall_kind_ = StallKind::If;
+          pending_if_word_ = res.first;
+          pending_if_pc_ = pc_;
+          // This fetch is already accepted; advance PC now and clear stale IF/ID.
+          pc_ += 4;
+          ifid_.valid = false;
+          return true;
+        }
+      } else {
+        uint32_t word = mem_.load32(phys_pc);
+        if (uncached_latency_ > 0 && !mem_.is_mapped_device_range(phys_pc, 4)) {
+          cycles_ += static_cast<uint64_t>(uncached_latency_);
+        }
         ifid_.inst = isa::decode(word);
         ifid_.pc = pc_;
         ifid_.valid = true;
         pc_ += 4;
-      } else {
-        // miss: stall pipeline for res.second cycles then deliver
-        stall_counter_ = res.second;
-        stall_kind_ = StallKind::If;
-        pending_if_word_ = res.first;
-        pending_if_pc_ = pc_;
-        return true;
       }
     } else {
       ifid_.valid = false;
@@ -485,6 +626,18 @@ Pipeline::~Pipeline() {
   if (icache_) { delete icache_; icache_ = nullptr; }
   if (dcache_) { delete dcache_; dcache_ = nullptr; }
   if (mmu_) { delete mmu_; mmu_ = nullptr; }
+}
+
+void Pipeline::configure_cache(bool enable, const CacheConfig& cfg) {
+  if (icache_) { delete icache_; icache_ = nullptr; }
+  if (dcache_) { delete dcache_; dcache_ = nullptr; }
+  if (enable) {
+    icache_ = new SimpleCache(&mem_, cfg);
+    dcache_ = new SimpleCache(&mem_, cfg);
+  } else {
+    icache_ = nullptr;
+    dcache_ = nullptr;
+  }
 }
 
 void Pipeline::start_uart_stdin_bridge() {
@@ -547,9 +700,9 @@ bool Pipeline::load_elf(const std::string& path, const std::vector<std::string>&
   uint32_t sp = stack_top - guard;
   auto align_down = [](uint32_t v, uint32_t a) { return v & ~(a - 1); };
 
-  // ensure backing memory includes stack_top
+  // ensure backing memory includes stack_top; allocate an extra guard page
   uint8_t z = 0;
-  mem_.store_bytes(stack_top - 1, &z, 1);
+  mem_.store_bytes(stack_top + page - 1, &z, 1);
 
   // allocate strings (argv and envp) from high addresses downward
   uint32_t cur = sp;

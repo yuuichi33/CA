@@ -2,6 +2,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <algorithm>
+#include <iostream>
 
 // Construct using CacheConfig
 SimpleCache::SimpleCache(mem::Memory* mem, const CacheConfig& cfg)
@@ -162,6 +163,7 @@ int SimpleCache::store32(uint32_t addr, uint32_t value) {
     return 0;
   } else {
     // write-through: write to memory immediately, update cache line if present
+    std::cerr << "SimpleCache: write-through store32 addr=0x" << std::hex << addr << " val=0x" << value << std::dec << "\n";
     mem_->store32(addr, value);
     uint32_t block = addr / line_size_;
     size_t set_idx = block % num_sets_;

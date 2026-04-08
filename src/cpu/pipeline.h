@@ -86,6 +86,10 @@ public:
   // performance counters access
   uint64_t cycles() const { return cycles_; }
   uint64_t instrs() const { return instrs_; }
+  // configure cache runtime (enable/disable / custom config)
+  void configure_cache(bool enable, const CacheConfig& cfg);
+  // configure latency for uncached memory accesses (used when cache disabled)
+  void set_uncached_latency(int cycles) { uncached_latency_ = (cycles < 0) ? 0 : cycles; }
   // cache statistics
   uint64_t icache_accesses() const { return icache_ ? icache_->accesses() : 0; }
   uint64_t icache_hits() const { return icache_ ? icache_->hits() : 0; }
@@ -108,7 +112,7 @@ private:
   SimpleCache* icache_ = nullptr;
   SimpleCache* dcache_ = nullptr;
   // stall simulation for cache misses
-  int stall_counter_ = 0;
+  int stall_remaining_ = 0;
   enum class StallKind { None, If, MemLoad };
   StallKind stall_kind_ = StallKind::None;
   uint32_t pending_if_word_ = 0;
@@ -116,6 +120,7 @@ private:
   MEMWBReg pending_memwb_;
   uint32_t pending_mem_value_ = 0;
   bool last_stall_ = false;
+  int uncached_latency_ = 0;
   // performance counters
   uint64_t cycles_ = 0;
   uint64_t instrs_ = 0;

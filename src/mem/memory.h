@@ -28,11 +28,20 @@ public:
   void map_device(uint32_t base, uint32_t size, Device* dev);
   // current backing memory size in bytes
   size_t size() const;
+  // whether [addr, addr+size) is fully inside an MMIO mapped device range
+  bool is_mapped_device_range(uint32_t addr, uint32_t size) const;
+  // last out-of-bounds access info (for crash reporting)
+  uint32_t last_oob_addr() const;
+  uint32_t last_oob_size() const;
+  bool last_oob_is_write() const;
 
 private:
   std::vector<uint8_t> data_;
   struct Mapping { uint32_t base; uint32_t size; Device* dev; };
   std::vector<Mapping> mappings_;
+  uint32_t last_oob_addr_ = 0;
+  uint32_t last_oob_size_ = 0;
+  bool last_oob_is_write_ = false;
 };
 
 } // namespace mem

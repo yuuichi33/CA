@@ -9,7 +9,10 @@ for f in riscv-tests/isa/rv32ui-p-*; do
   name=$(basename "$f")
   printf "Running %s\n" "$name"
   t0=$(date +%s%N)
-  OUT=$(./build/mycpu -q -l "$f" -c 2000000 2>&1) ; rc=$?
+  set +e
+  OUT=$(./build/mycpu -q -l "$f" -c 2000000 2>&1)
+  rc=$?
+  set -e
   t1=$(date +%s%N)
   ms=$(( (t1 - t0)/1000000 ))
   cycles=$(echo "$OUT" | sed -n 's/.*Cycles: *\([0-9]*\).*/\1/p')

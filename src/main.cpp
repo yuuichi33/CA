@@ -8,6 +8,7 @@
 #include <iomanip>
 #include "periph/tohost_mmio.h"
 #include "cpu/pipeline.h"
+#include "isa/decoder.h"
 
 static std::atomic<bool> running{true};
 
@@ -28,6 +29,8 @@ int main(int argc, char** argv) {
   bool verbose = false;
   bool step_mode = false;
   bool quiet = false;
+  bool no_cache = false;
+  int cache_penalty = 10;
   std::vector<std::string> cli_argv;
   std::vector<std::string> cli_envp;
 
@@ -53,6 +56,10 @@ int main(int argc, char** argv) {
       verbose = true;
     } else if (a == "--quiet" || a == "-q") {
       quiet = true;
+    } else if (a == "--no-cache") {
+      no_cache = true;
+    } else if (a == "--cache-penalty") {
+      if (i + 1 < argc) { cache_penalty = static_cast<int>(parse_u64(argv[++i])); } else { std::cerr << "--cache-penalty requires a number\n"; return 1; }
     } else if (a == "--step" || a == "-s") {
       step_mode = true;
     } else if (a == "--arg" || a == "-a") {
@@ -71,10 +78,29 @@ int main(int argc, char** argv) {
 
   if (!quiet) std::cout << "myCPU simulator starting" << (enable_uart_bridge ? " with UART stdin bridge" : "") << "\n";
 
+  // If quiet mode requested, silence stderr to avoid debug/driver noise
+  if (quiet) {
+    static std::ofstream devnull("/dev/null");
+    std::cerr.rdbuf(devnull.rdbuf());
+  }
+
   std::signal(SIGINT, sigint_handler);
 
-  cpu::Pipeline p;
+  // Allocate pipeline memory to match benchmark linker script (32MB)
+  cpu::Pipeline p({}, 32 * 1024 * 1024);
   p.set_verbose(!quiet);
+  // configure cache according to CLI flags
+  {
+    CacheConfig cfg;
+    cfg.cache_size = 16 * 1024;
+    cfg.line_size = 64;
+    cfg.associativity = 4;
+    cfg.write_back = true;
+    cfg.write_allocate = true;
+    cfg.miss_latency = cache_penalty;
+    p.configure_cache(!no_cache, cfg);
+    p.set_uncached_latency(no_cache ? cache_penalty : 0);
+  }
   if (!elf_path.empty()) {
     if (!p.load_elf(elf_path, cli_argv, cli_envp)) {
       std::cerr << "failed to load ELF: " << elf_path << "\n";
@@ -132,9 +158,65 @@ int main(int argc, char** argv) {
     return s;
   };
 
+  auto report_crash = [&p](const std::exception& ex) {
+    std::cout << "FATAL: " << ex.what() << "\n";
+    std::cout << "Crash OOB: access=" << (p.memory().last_oob_is_write() ? "write" : "read")
+              << " size=" << p.memory().last_oob_size()
+              << " addr=0x" << std::hex << p.memory().last_oob_addr() << std::dec << "\n";
+    std::cout << "Crash Regs: "
+              << "sp=0x" << std::hex << p.regs().read(2)
+              << " s0=0x" << p.regs().read(8)
+              << " s1=0x" << p.regs().read(9)
+              << " a0=0x" << p.regs().read(10)
+              << " a1=0x" << p.regs().read(11)
+              << " a2=0x" << p.regs().read(12)
+              << " a3=0x" << p.regs().read(13)
+              << " a4=0x" << p.regs().read(14)
+              << " a5=0x" << p.regs().read(15)
+              << std::dec << "\n";
+
+    if (p.exmem().valid) {
+      std::cout << "Crash Stage: MEM pc=0x" << std::hex << p.exmem().pc
+                << " inst=" << p.exmem().inst.name
+                << " alu=0x" << p.exmem().alu_result << std::dec << "\n";
+    } else if (p.idex().valid) {
+      std::cout << "Crash Stage: EX pc=0x" << std::hex << p.idex().pc
+                << " inst=" << p.idex().inst.name << std::dec << "\n";
+    } else if (p.ifid().valid) {
+      std::cout << "Crash Stage: ID pc=0x" << std::hex << p.ifid().pc
+                << " inst=" << p.ifid().inst.name << std::dec << "\n";
+    }
+
+    uint32_t cur_pc = p.pc();
+    std::cout << "Crash PC: 0x" << std::hex << cur_pc;
+    if (cur_pc + 4 <= static_cast<uint32_t>(p.memory().size())) {
+      try {
+        uint32_t word = p.memory().load32(cur_pc);
+        auto d = isa::decode(word);
+        std::cout << " instr_word=0x" << word << " instr=" << d.name;
+      } catch (...) {
+        // ignore secondary read failure while reporting crash context
+      }
+    }
+    std::cout << std::dec << "\n";
+  };
+
+  auto step_once = [&]() -> bool {
+    try {
+      p.step();
+      return true;
+    } catch (const std::out_of_range& ex) {
+      report_crash(ex);
+      return false;
+    } catch (const std::exception& ex) {
+      report_crash(ex);
+      return false;
+    }
+  };
+
   if (run_cycles_set) {
     for (uint64_t i = 0; i < run_cycles && running.load(); ++i) {
-      p.step();
+      if (!step_once()) return 2;
       if (periph::tohost_exit_code.load() >= 0) { running.store(false); break; }
       if (verbose) std::cout << p.dump_regs() << "\n";
       if (step_mode) {
@@ -145,7 +227,7 @@ int main(int argc, char** argv) {
     }
   } else {
     while (running.load()) {
-      p.step();
+      if (!step_once()) return 2;
       if (periph::tohost_exit_code.load() >= 0) { running.store(false); break; }
       if (verbose) std::cout << p.dump_regs() << "\n";
       if (step_mode) {
@@ -153,7 +235,8 @@ int main(int argc, char** argv) {
         std::string l = read_tty_line();
         if (!l.empty() && (l[0] == 'q' || l[0] == 'Q')) { running.store(false); break; }
       } else {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        // don't throttle simulator in quiet/benchmark mode
+        if (!quiet) std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
     }
   }

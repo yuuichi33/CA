@@ -141,6 +141,13 @@ Decoded decode(uint32_t inst) {
         }
       break;
 
+    case 0x0f: // MISC-MEM (FENCE/FENCE.I)
+      d.type = InstType::I;
+      d.imm = sign_extend(inst >> 20, 12);
+      if (d.funct3 == 0x0) d.name = "FENCE";
+      else if (d.funct3 == 0x1) d.name = "FENCE.I";
+      break;
+
     default:
       d.type = InstType::OTHER;
       d.name = "UNKNOWN";
