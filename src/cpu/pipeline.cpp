@@ -7,6 +7,7 @@
 #include <atomic>
 #include <poll.h>
 #include <unistd.h>
+#include <iostream>
 
 namespace cpu {
 
@@ -28,6 +29,8 @@ Pipeline::Pipeline(const std::vector<uint32_t>& program, size_t mem_size) : prog
   for (size_t i = 0; i < program_.size(); ++i) {
     mem_.store32(static_cast<uint32_t>(i * 4), program_[i]);
   }
+  // instantiate MMU (uses mem_ and csr_)
+  mmu_ = new mmu::MMU(&mem_, &csr_);
 }
 
 void Pipeline::reset() {
@@ -82,15 +85,12 @@ bool Pipeline::step() {
   // timer tick and interrupt injection
   if (timer_.tick()) {
     csr_.set_mip_timer(true);
+    
   }
-
   // handle pending interrupts: timer first, then UART
   if (csr_.pending_timer_interrupt()) {
-    // set mepc to current pc_
-    csr_.write_mepc(pc_);
-    // set mcause with interrupt bit + timer IRQ number (7)
-    csr_.write_mcause((1u << 31) | 7u);
-    uint32_t vec = csr_.read_mtvec();
+    uint32_t cause_raw = (1u << 31) | 7u;
+    uint32_t vec = csr_.handle_trap(cause_raw, 0u, pc_, true);
     pc_ = vec;
     // flush pipeline
     ifid_.valid = false;
@@ -100,9 +100,8 @@ bool Pipeline::step() {
     csr_.set_mip_timer(false);
     return false;
   } else if (csr_.pending_uart_interrupt()) {
-    csr_.write_mepc(pc_);
-    csr_.write_mcause((1u << 31) | 3u);
-    uint32_t vec = csr_.read_mtvec();
+    uint32_t cause_raw = (1u << 31) | 3u;
+    uint32_t vec = csr_.handle_trap(cause_raw, 0u, pc_, true);
     pc_ = vec;
     ifid_.valid = false;
     idex_.valid = false;
@@ -124,7 +123,15 @@ bool Pipeline::step() {
 
     const std::string &mname = prev_exmem.inst.name;
     if (mname == "LW") {
-      auto res = dcache_->load32(prev_exmem.alu_result);
+      uint32_t phys = prev_exmem.alu_result;
+      uint32_t cause = 0;
+      if (mmu_ && !mmu_->translate(prev_exmem.alu_result, mmu::AccessType::Load, phys, cause)) {
+        uint32_t vec = csr_.handle_trap(cause, prev_exmem.alu_result, prev_exmem.pc, false);
+        pc_ = vec;
+        ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
+        return false;
+      }
+      auto res = dcache_->load32(phys);
       if (res.second == 0) {
         memwb_.mem_data = res.first;
       } else {
@@ -135,7 +142,15 @@ bool Pipeline::step() {
         return true;
       }
     } else if (mname == "LB" || mname == "LBU") {
-      auto res = dcache_->load8(prev_exmem.alu_result);
+      uint32_t phys = prev_exmem.alu_result;
+      uint32_t cause = 0;
+      if (mmu_ && !mmu_->translate(prev_exmem.alu_result, mmu::AccessType::Load, phys, cause)) {
+        uint32_t vec = csr_.handle_trap(cause, prev_exmem.alu_result, prev_exmem.pc, false);
+        pc_ = vec;
+        ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
+        return false;
+      }
+      auto res = dcache_->load8(phys);
       if (res.second == 0) {
         uint32_t byte = res.first & 0xffu;
         if (mname == "LB") {
@@ -152,7 +167,15 @@ bool Pipeline::step() {
         return true;
       }
     } else if (mname == "LH" || mname == "LHU") {
-      auto res = dcache_->load16(prev_exmem.alu_result);
+      uint32_t phys = prev_exmem.alu_result;
+      uint32_t cause = 0;
+      if (mmu_ && !mmu_->translate(prev_exmem.alu_result, mmu::AccessType::Load, phys, cause)) {
+        uint32_t vec = csr_.handle_trap(cause, prev_exmem.alu_result, prev_exmem.pc, false);
+        pc_ = vec;
+        ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
+        return false;
+      }
+      auto res = dcache_->load16(phys);
       if (res.second == 0) {
         uint32_t half = res.first & 0xffffu;
         if (mname == "LH") {
@@ -169,11 +192,35 @@ bool Pipeline::step() {
         return true;
       }
     } else if (mname == "SW") {
-      dcache_->store32(prev_exmem.alu_result, prev_exmem.rs2_val);
+      uint32_t phys = prev_exmem.alu_result;
+      uint32_t cause = 0;
+      if (mmu_ && !mmu_->translate(prev_exmem.alu_result, mmu::AccessType::Store, phys, cause)) {
+        uint32_t vec = csr_.handle_trap(cause, prev_exmem.alu_result, prev_exmem.pc, false);
+        pc_ = vec;
+        ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
+        return false;
+      }
+      dcache_->store32(phys, prev_exmem.rs2_val);
     } else if (mname == "SB") {
-      dcache_->store8(prev_exmem.alu_result, static_cast<uint8_t>(prev_exmem.rs2_val & 0xffu));
+      uint32_t phys = prev_exmem.alu_result;
+      uint32_t cause = 0;
+      if (mmu_ && !mmu_->translate(prev_exmem.alu_result, mmu::AccessType::Store, phys, cause)) {
+        uint32_t vec = csr_.handle_trap(cause, prev_exmem.alu_result, prev_exmem.pc, false);
+        pc_ = vec;
+        ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
+        return false;
+      }
+      dcache_->store8(phys, static_cast<uint8_t>(prev_exmem.rs2_val & 0xffu));
     } else if (mname == "SH") {
-      dcache_->store16(prev_exmem.alu_result, static_cast<uint16_t>(prev_exmem.rs2_val & 0xffffu));
+      uint32_t phys = prev_exmem.alu_result;
+      uint32_t cause = 0;
+      if (mmu_ && !mmu_->translate(prev_exmem.alu_result, mmu::AccessType::Store, phys, cause)) {
+        uint32_t vec = csr_.handle_trap(cause, prev_exmem.alu_result, prev_exmem.pc, false);
+        pc_ = vec;
+        ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
+        return false;
+      }
+      dcache_->store16(phys, static_cast<uint16_t>(prev_exmem.rs2_val & 0xffffu));
     }
   }
 
@@ -184,9 +231,10 @@ bool Pipeline::step() {
   if (prev_idex.valid) {
     // handle ECALL -> synchronous trap
     if (prev_idex.inst.name == "ECALL") {
-      csr_.write_mepc(prev_idex.pc);
-      csr_.write_mcause(11u); // environment call from M-mode
-      pc_ = csr_.read_mtvec();
+      int priv = csr_.get_privilege();
+      uint32_t cause_num = (priv == 0) ? 8u : (priv == 1 ? 9u : 11u);
+      uint32_t vec = csr_.handle_trap(cause_num, 0u, prev_idex.pc, false);
+      pc_ = vec;
       // flush pipeline
       ifid_.valid = false;
       idex_.valid = false;
@@ -197,7 +245,10 @@ bool Pipeline::step() {
 
     // handle MRET -> return from trap
     if (prev_idex.inst.name == "MRET") {
+      std::cerr << "Pipeline: executing MRET at pc=0x" << std::hex << prev_idex.pc << std::dec << "\n";
+      csr_.mret_restore();
       pc_ = csr_.read_mepc();
+      std::cerr << "Pipeline: MRET returned to pc=0x" << std::hex << pc_ << std::dec << " privilege=" << csr_.get_privilege() << "\n";
       // clear pending flags
       csr_.set_mip_timer(false);
       csr_.set_mip_uart(false);
@@ -210,6 +261,8 @@ bool Pipeline::step() {
     // operand fetch with forwarding: prioritize EX/MEM, then MEM/WB
     uint32_t a = prev_idex.rs1_val;
     uint32_t b = prev_idex.rs2_val;
+
+    
 
     // forward for rs1
     if (prev_exmem.valid && prev_exmem.rd != 0 && prev_exmem.write_back && prev_exmem.rd == prev_idex.inst.rs1) {
@@ -238,6 +291,8 @@ bool Pipeline::step() {
     if (name == "ADD") alu_res = a + b;
     else if (name == "SUB") alu_res = a - b;
     else if (name == "ADDI") alu_res = a + static_cast<uint32_t>(prev_idex.inst.imm);
+    else if (name == "LUI") alu_res = static_cast<uint32_t>(prev_idex.inst.imm);
+    else if (name == "AUIPC") alu_res = prev_idex.pc + static_cast<uint32_t>(prev_idex.inst.imm);
     else if (name == "SLLI") alu_res = a << (static_cast<uint32_t>(prev_idex.inst.imm) & 0x1f);
     else if (name == "SLTI") alu_res = (static_cast<int32_t>(a) < static_cast<int32_t>(prev_idex.inst.imm)) ? 1u : 0u;
     else if (name == "SLTIU") alu_res = (a < static_cast<uint32_t>(prev_idex.inst.imm)) ? 1u : 0u;
@@ -254,19 +309,33 @@ bool Pipeline::step() {
     else if (name == "XOR") alu_res = a ^ b;
     else if (name == "SLT") alu_res = (static_cast<int32_t>(a) < static_cast<int32_t>(b)) ? 1u : 0u;
     else if (name == "SLTU") alu_res = (a < b) ? 1u : 0u;
-    else if (name == "LW" || name == "SW" || name == "LB" || name == "LBU" || name == "LH" || name == "LHU" || name == "SB" || name == "SH") alu_res = a + static_cast<uint32_t>(prev_idex.inst.imm);
+    else if (name == "LW" || name == "SW" || name == "LB" || name == "LBU" || name == "LH" || name == "LHU" || name == "SB" || name == "SH") {
+      alu_res = a + static_cast<uint32_t>(prev_idex.inst.imm);
+      if (verbose_) std::cerr << "EX: " << name << " pc=0x" << std::hex << prev_idex.pc << std::dec << " rs1_val=0x" << std::hex << a << " rs2_val=0x" << b << " imm=0x" << std::hex << prev_idex.inst.imm << " -> alu_res=0x" << alu_res << std::dec << "\n";
+    }
     else if (name == "CSRRW" || name == "CSRRS" || name == "CSRRC" || name == "CSRRWI" || name == "CSRRSI" || name == "CSRRCI") {
       uint32_t csr_addr = prev_idex.inst.csr;
-      uint32_t old = csr_.read(csr_addr);
-      uint32_t newv = old;
-      if (name == "CSRRW") newv = a;
-      else if (name == "CSRRWI") newv = prev_idex.inst.rs1; // zimm in rs1 field
-      else if (name == "CSRRS") newv = old | a;
-      else if (name == "CSRRSI") newv = old | prev_idex.inst.rs1;
-      else if (name == "CSRRC") newv = old & ~a;
-      else if (name == "CSRRCI") newv = old & ~prev_idex.inst.rs1;
-      csr_.write(csr_addr, newv);
-      alu_res = old;
+      try {
+        uint32_t old = csr_.read(csr_addr);
+        uint32_t newv = old;
+        if (name == "CSRRW") newv = a;
+        else if (name == "CSRRWI") newv = prev_idex.inst.rs1; // zimm in rs1 field
+        else if (name == "CSRRS") newv = old | a;
+        else if (name == "CSRRSI") newv = old | prev_idex.inst.rs1;
+        else if (name == "CSRRC") newv = old & ~a;
+        else if (name == "CSRRCI") newv = old & ~prev_idex.inst.rs1;
+        csr_.write(csr_addr, newv);
+        alu_res = old;
+      } catch (const CSR::CSRException &ex) {
+        uint32_t vec = csr_.handle_trap(ex.cause(), 0u, prev_idex.pc, false);
+        pc_ = vec;
+        // flush pipeline
+        ifid_.valid = false;
+        idex_.valid = false;
+        exmem_.valid = false;
+        memwb_.valid = false;
+        return false;
+      }
     }
     else if (name == "BEQ") {
       if (a == b) { branch_taken = true; branch_target = prev_idex.pc + prev_idex.inst.imm; }
@@ -330,9 +399,22 @@ bool Pipeline::step() {
     }
 
     // fetch next instruction into IF/ID unless we flushed due to branch
-    if (pc_ / 4 < program_.size()) {
-      // use icache for instruction fetch
-      auto res = icache_->load32(pc_);
+    // Allow fetching from any mapped memory region (not limited to initial program_ vector)
+    if (pc_ < static_cast<uint32_t>(mem_.size())) {
+      // translate virtual PC to physical
+      uint32_t phys_pc = pc_;
+      uint32_t cause_out = 0;
+      if (mmu_ && !mmu_->translate(pc_, mmu::AccessType::Fetch, phys_pc, cause_out)) {
+        uint32_t vec = csr_.handle_trap(cause_out, pc_, pc_, false);
+        pc_ = vec;
+        ifid_.valid = false;
+        idex_.valid = false;
+        exmem_.valid = false;
+        memwb_.valid = false;
+        return false;
+      }
+      // use icache for instruction fetch (physical address)
+      auto res = icache_->load32(phys_pc);
       if (res.second == 0) {
         uint32_t word = res.first;
         ifid_.inst = isa::decode(word);
@@ -368,6 +450,9 @@ void Pipeline::uart_write_ier(uint32_t ier) {
 
 Pipeline::~Pipeline() {
   stop_uart_stdin_bridge();
+  if (icache_) { delete icache_; icache_ = nullptr; }
+  if (dcache_) { delete dcache_; dcache_ = nullptr; }
+  if (mmu_) { delete mmu_; mmu_ = nullptr; }
 }
 
 void Pipeline::start_uart_stdin_bridge() {
@@ -506,6 +591,63 @@ std::string Pipeline::dump_regs() const {
   oss << "PC=" << pc_ << " IF/ID.valid=" << ifid_.valid << " IF/ID.inst=" << ifid_.inst.name
       << " ID/EX.valid=" << idex_.valid << " ID/EX.inst=" << idex_.inst.name;
   return oss.str();
+}
+
+bool Pipeline::mmu_map_4k(uint32_t vaddr, uint32_t paddr, uint32_t pte_flags) {
+  // require 4k alignment
+  const uint32_t page = 0x1000u;
+  if ((vaddr & (page - 1)) || (paddr & (page - 1))) return false;
+  // ensure root page table exists
+  uint32_t satp = csr_.read(0x180);
+  uint32_t root_ppn = satp & 0x003fffffu;
+  uint32_t root_base = root_ppn << 12u;
+  // helper: allocate a page-table page in a high offset area to avoid colliding
+  // with physical pages tests may pick (they often use mem.size()+0x1000).
+  auto alloc_page_avoid = [&](uint32_t avoid_addr) {
+    const uint32_t base_offset = 8u * page; // place PT pages well beyond current heap
+    uint32_t addr = static_cast<uint32_t>(mem_.size()) + base_offset;
+    if (addr == avoid_addr) addr += page;
+    std::vector<uint8_t> z(page, 0);
+    mem_.store_bytes(addr, z.data(), z.size());
+    return addr;
+  };
+
+  if (root_ppn == 0) {
+    uint32_t rb = alloc_page_avoid(paddr);
+    uint32_t new_ppn = rb >> 12u;
+    uint32_t new_satp = (1u << 31) | (new_ppn & 0x003fffffu);
+    csr_.write(0x180, new_satp);
+    root_base = rb;
+  }
+  uint32_t vpn1 = (vaddr >> 22) & 0x3ffu;
+  uint32_t vpn0 = (vaddr >> 12) & 0x3ffu;
+  uint32_t pte1_addr = root_base + vpn1 * 4u;
+  uint32_t pte1 = 0;
+  try { pte1 = mem_.load32(pte1_addr); } catch (...) { pte1 = 0; }
+  uint32_t level0_base = 0;
+  if (pte1 == 0) {
+    uint32_t lvl0 = alloc_page_avoid(paddr);
+    uint32_t ppn0 = lvl0 >> 12u;
+    uint32_t new_pte1 = (ppn0 << 10u) | 1u; // valid pointer
+    std::cerr << "mmu_map_4k: alloc level0 page at 0x" << std::hex << lvl0 << std::dec << " for vpn1=" << vpn1 << "\n";
+    std::cerr << "mmu_map_4k: write pte1 @0x" << std::hex << pte1_addr << " = 0x" << new_pte1 << std::dec << "\n";
+    mem_.store32(pte1_addr, new_pte1);
+    level0_base = lvl0;
+  } else {
+    uint32_t next_ppn = pte1 >> 10u;
+    level0_base = next_ppn << 12u;
+  }
+  uint32_t pte0_addr = level0_base + vpn0 * 4u;
+  uint32_t pte0 = ((paddr >> 12u) << 10u) | (pte_flags & 0xffu);
+  std::cerr << "mmu_map_4k: write pte0 @0x" << std::hex << pte0_addr << " = 0x" << pte0 << std::dec << " (vaddr=0x" << std::hex << vaddr << ")\n";
+  mem_.store32(pte0_addr, pte0);
+  if (mmu_) mmu_->set_enabled(true);
+  return true;
+}
+
+void Pipeline::set_verbose(bool v) {
+  verbose_ = v;
+  if (mmu_) mmu_->set_verbose(v);
 }
 
 } // namespace cpu

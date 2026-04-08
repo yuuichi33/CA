@@ -16,7 +16,7 @@ enable_testing()
 add_test(NAME decoder_test COMMAND test_decoder)
 
 # CPU library and single-cycle test
-add_library(cpu STATIC src/cpu/registers.cpp src/cpu/alu.cpp src/cpu/single_cycle.cpp src/cpu/pipeline.cpp src/mem/memory.cpp src/cache/simple_cache.cpp src/cpu/csr.cpp src/periph/timer.cpp src/periph/timer_mmio.cpp src/periph/uart_mmio.cpp src/elf/elf_loader.cpp)
+add_library(cpu STATIC src/cpu/registers.cpp src/cpu/alu.cpp src/cpu/single_cycle.cpp src/cpu/pipeline.cpp src/mem/memory.cpp src/cache/simple_cache.cpp src/cpu/csr.cpp src/periph/timer.cpp src/periph/timer_mmio.cpp src/periph/uart_mmio.cpp src/mmu/mmu.cpp src/elf/elf_loader.cpp)
 target_include_directories(cpu PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(cpu PRIVATE isa)
 
@@ -67,3 +67,15 @@ add_test(NAME isa_immediates_test COMMAND test_isa_immediates)
 add_executable(test_csrs tests/test_csrs.cpp)
 target_link_libraries(test_csrs PRIVATE cpu isa)
 add_test(NAME csrs_test COMMAND test_csrs)
+
+add_executable(test_mmu_basic tests/test_mmu_basic.cpp)
+target_link_libraries(test_mmu_basic PRIVATE cpu isa)
+add_test(NAME mmu_basic_test COMMAND test_mmu_basic)
+
+add_executable(test_privilege_security tests/test_privilege_security.cpp)
+target_link_libraries(test_privilege_security PRIVATE cpu isa)
+add_test(NAME privilege_security_test COMMAND test_privilege_security)
+
+add_executable(test_trap_delegation tests/test_trap_delegation.cpp)
+target_link_libraries(test_trap_delegation PRIVATE cpu isa)
+add_test(NAME trap_delegation_test COMMAND test_trap_delegation)

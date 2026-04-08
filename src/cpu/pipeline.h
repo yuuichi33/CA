@@ -4,6 +4,7 @@
 #include "mem/memory.h"
 #include "cache/simple_cache.h"
 #include "cpu/csr.h"
+#include "mmu/mmu.h"
 #include "periph/timer.h"
 #include "periph/timer_mmio.h"
 #include "periph/uart_mmio.h"
@@ -76,6 +77,10 @@ public:
   periph::Timer& timer() { return timer_; }
   // expose memory for tests/tools
   mem::Memory& memory() { return mem_; }
+  // helper to create a 4k page table mapping vaddr -> paddr with given PTE flags
+  bool mmu_map_4k(uint32_t vaddr, uint32_t paddr, uint32_t pte_flags);
+  // control verbose debug printing (for mmu)
+  void set_verbose(bool v);
   std::string dump_regs() const;
 
 private:
@@ -104,6 +109,9 @@ private:
   periph::Timer timer_;
   periph::TimerMMIO* timer_mmio_ = nullptr;
   periph::UARTMMIO* uart_mmio_ = nullptr;
+  // MMU
+  mmu::MMU* mmu_ = nullptr;
+  bool verbose_ = false;
   // stdin bridge thread
   std::thread uart_stdin_thread_;
   std::atomic<bool> uart_stdin_running_{false};
