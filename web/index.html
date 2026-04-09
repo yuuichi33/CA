@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>myCPU Visual Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="bg-grain" aria-hidden="true"></div>
+
+  <header class="hero">
+    <div class="title-wrap">
+      <p class="eyebrow"></p>
+      <h1>myCPU Visual Lab</h1>
+      <p class="subtitle"></p>
+    </div>
+    <div class="hero-metrics">
+      <div class="metric-pill"><span>连接</span><strong id="connState">disconnected</strong></div>
+      <div class="metric-pill"><span>Lines</span><strong id="lineCount">0</strong></div>
+      <div class="metric-pill"><span>Cycle</span><strong id="lastCycle">-</strong></div>
+      <div class="metric-pill"><span>PC</span><strong id="lastPc">-</strong></div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel controls" aria-label="控制面板">
+      <h2>控制台</h2>
+      <div class="row wrap">
+        <button id="connectBtn" type="button">Connect SSE</button>
+        <button id="disconnectBtn" type="button" disabled>Disconnect</button>
+        <button id="clearBtn" type="button">Clear Data</button>
+      </div>
+      <div class="row wrap">
+        <button id="playPauseBtn" type="button">Pause</button>
+        <button id="stepBackBtn" type="button">Step -1</button>
+        <button id="stepForwardBtn" type="button">Step +1</button>
+      </div>
+      <div class="row range-row">
+        <label for="speedRange">播放速率</label>
+        <input id="speedRange" type="range" min="0.25" max="6" value="1" step="0.25" />
+        <strong id="speedLabel">1.00x</strong>
+      </div>
+      <div class="row">
+        <label for="jumpCycleInput">跳转 Cycle</label>
+        <input id="jumpCycleInput" type="number" min="0" value="0" />
+        <button id="jumpCycleBtn" type="button">Jump</button>
+      </div>
+      <div class="row">
+        <label for="followTailCheck">跟随最新</label>
+        <input id="followTailCheck" type="checkbox" checked />
+      </div>
+      <div class="row">
+        <span>当前异常</span>
+        <strong id="lastEx">-</strong>
+      </div>
+
+      <h3>性能反馈（最近 1000 Cycle）</h3>
+      <svg id="perfSvg" role="img" aria-label="IPC and D-Cache hit rate trend"></svg>
+      <div class="perf-legend">
+        <span><i class="swatch ipc" aria-hidden="true"></i>IPC</span>
+        <span><i class="swatch dcache" aria-hidden="true"></i>D-Cache Hit</span>
+      </div>
+
+      <h3>Virtual Console</h3>
+      <div class="row wrap compact">
+        <button id="clearConsoleBtn" type="button">Clear Console</button>
+      </div>
+      <pre id="virtualConsole" class="virtual-console"></pre>
+    </section>
+
+    <section class="panel pipeline" aria-label="流水线视图">
+      <h2>流水线实时视图</h2>
+      <svg id="pipelineSvg" role="img" aria-label="Pipeline stages"></svg>
+    </section>
+
+    <section class="panel timeline" aria-label="时间轴">
+      <h2>指令时间轴（最近 32 Cycle）</h2>
+      <svg id="timelineSvg" role="img" aria-label="Instruction timeline"></svg>
+    </section>
+
+    <section class="panel regs" aria-label="寄存器窗口">
+      <h2>寄存器窗口 x0..x31</h2>
+      <div id="regsGrid" class="regs-grid"></div>
+    </section>
+
+    <section class="panel cache" aria-label="缓存视图">
+      <h2>Cache 观察</h2>
+      <div class="cache-row">
+        <span>I-Cache</span>
+        <div class="bar"><div id="iRateBar" class="fill i"></div></div>
+        <strong id="iRateText">0.00%</strong>
+      </div>
+      <div class="cache-row">
+        <span>D-Cache</span>
+        <div class="bar"><div id="dRateBar" class="fill d"></div></div>
+        <strong id="dRateText">0.00%</strong>
+      </div>
+      <h3>最近 Cache 事件</h3>
+      <ul id="cacheEventList" class="event-list"></ul>
+      <h3>当前访存事件</h3>
+      <ul id="memEventList" class="event-list"></ul>
+    </section>
+
+    <section class="panel memory" aria-label="内存回放窗口">
+      <h2>Memory Inspector（地址窗口回放）</h2>
+      <div class="row wrap memory-controls">
+        <label for="memBaseInput">起始地址</label>
+        <input id="memBaseInput" type="text" value="0x00000000" />
+        <label for="memSizeInput">窗口字节</label>
+        <input id="memSizeInput" type="number" value="64" min="16" max="512" step="16" />
+        <button id="memApplyBtn" type="button">Apply</button>
+        <button id="memAtPcBtn" type="button">Base = PC</button>
+        <button id="memLastWriteBtn" type="button">Base = Last Store</button>
+        <label for="memIncludeMmioCheck">包含 MMIO</label>
+        <input id="memIncludeMmioCheck" type="checkbox" />
+        <label for="memFollowLastWriteCheck">自动跟随最近写入</label>
+        <input id="memFollowLastWriteCheck" type="checkbox" />
+      </div>
+      <div class="memory-hint">
+        <span id="memRangeLabel">range: -</span>
+        <span>注：按 store 事件回放已知字节；默认不包含 MMIO。未知字节显示 `..`。开启自动跟随后会覆盖手动基址。</span>
+      </div>
+      <div id="memDump" class="mem-dump" role="region" aria-label="Memory hex dump"></div>
+      <h3>窗口内最近写入</h3>
+      <ul id="memWriteList" class="event-list"></ul>
+    </section>
+
+    <section class="panel logs" aria-label="原始日志">
+      <h2>原始 Trace（最近 160 行）</h2>
+      <pre id="log"></pre>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

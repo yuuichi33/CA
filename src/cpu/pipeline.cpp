@@ -9,8 +9,68 @@
 #include <poll.h>
 #include <unistd.h>
 #include <iostream>
+#include <functional>
 
 namespace cpu {
+
+namespace {
+
+class ScopeExit {
+public:
+  explicit ScopeExit(std::function<void()> fn) : fn_(std::move(fn)) {}
+  ~ScopeExit() {
+    if (fn_) fn_();
+  }
+
+  ScopeExit(const ScopeExit&) = delete;
+  ScopeExit& operator=(const ScopeExit&) = delete;
+
+private:
+  std::function<void()> fn_;
+};
+
+trace::StageState make_stage_state(const IFIDReg& reg) {
+  trace::StageState s;
+  s.valid = reg.valid;
+  s.pc = reg.pc;
+  s.instr = reg.inst.name;
+  s.rd = reg.inst.rd;
+  return s;
+}
+
+trace::StageState make_stage_state(const IDEXReg& reg) {
+  trace::StageState s;
+  s.valid = reg.valid;
+  s.pc = reg.pc;
+  s.instr = reg.inst.name;
+  s.rd = reg.inst.rd;
+  return s;
+}
+
+trace::StageState make_stage_state(const EXMEMReg& reg) {
+  trace::StageState s;
+  s.valid = reg.valid;
+  s.pc = reg.pc;
+  s.instr = reg.inst.name;
+  s.rd = reg.rd;
+  s.write_back = reg.write_back;
+  s.alu_result = reg.alu_result;
+  return s;
+}
+
+trace::StageState make_stage_state(const MEMWBReg& reg) {
+  trace::StageState s;
+  s.valid = reg.valid;
+  s.pc = reg.pc;
+  s.instr = reg.inst.name;
+  s.rd = reg.rd;
+  s.write_back = reg.write_back;
+  s.alu_result = reg.alu_result;
+  s.mem_data = reg.mem_data;
+  return s;
+}
+
+}  // namespace
 
 Pipeline::Pipeline(const std::vector<uint32_t>& program, size_t mem_size) : program_(program), mem_(mem_size) {
   reset();
@@ -58,9 +118,81 @@ bool Pipeline::step() {
   // each call to step represents one cycle
   ++cycles_;
 
+  const bool tracing = static_cast<bool>(trace_writer_);
+  std::vector<trace::RegWrite> trace_regs_changed;
+  std::vector<trace::MemAccess> trace_mem_accesses;
+  std::vector<trace::CacheEvent> trace_cache_events;
+  std::string trace_exception;
+  MEMWBReg wb_snapshot = memwb_;
+
+  auto push_mem_access = [&](const std::string& stage,
+                             const std::string& type,
+                             uint32_t vaddr,
+                             uint32_t paddr,
+                             uint32_t size,
+                             uint32_t value,
+                             bool mmio,
+                             bool cache_used,
+                             bool cache_hit) {
+    if (!tracing) return;
+    trace::MemAccess ev;
+    ev.stage = stage;
+    ev.type = type;
+    ev.vaddr = vaddr;
+    ev.paddr = paddr;
+    ev.size = size;
+    ev.value = value;
+    ev.mmio = mmio;
+    ev.cache_used = cache_used;
+    ev.cache_hit = cache_hit;
+    trace_mem_accesses.push_back(std::move(ev));
+  };
+
+  auto push_cache_event = [&](const std::string& cache,
+                              const std::string& op,
+                              uint32_t paddr,
+                              uint32_t size,
+                              bool hit,
+                              int latency) {
+    if (!tracing) return;
+    trace::CacheEvent ev;
+    ev.cache = cache;
+    ev.op = op;
+    ev.paddr = paddr;
+    ev.size = size;
+    ev.hit = hit;
+    ev.latency = latency;
+    trace_cache_events.push_back(std::move(ev));
+  };
+
+  ScopeExit trace_guard([&]() {
+    if (!trace_writer_) return;
+    trace::CycleRecord rec;
+    rec.cycle = cycles_;
+    rec.pc = pc_;
+    rec.instrs_retired = instrs_;
+    rec.stalled = last_stall_ || stall_remaining_ > 0 || stall_kind_ != StallKind::None;
+    rec.if_stage = make_stage_state(ifid_);
+    rec.id_stage = make_stage_state(idex_);
+    rec.ex_stage = make_stage_state(exmem_);
+    rec.mem_stage = make_stage_state(memwb_);
+    rec.wb_stage = make_stage_state(wb_snapshot);
+    rec.regs_changed = std::move(trace_regs_changed);
+    rec.mem_accesses = std::move(trace_mem_accesses);
+    rec.cache_events = std::move(trace_cache_events);
+    rec.exception = trace_exception;
+    rec.tohost = periph::tohost_exit_code.load();
+    rec.icache_accesses = icache_ ? icache_->accesses() : 0;
+    rec.icache_hits = icache_ ? icache_->hits() : 0;
+    rec.dcache_accesses = dcache_ ? dcache_->accesses() : 0;
+    rec.dcache_hits = dcache_ ? dcache_->hits() : 0;
+    trace_writer_->WriteCycle(rec);
+  });
+
   // During a cache miss stall, only advance cycle counter and countdown.
   if (stall_remaining_ > 0) {
     --stall_remaining_;
+    last_stall_ = true;
     return true;
   }
 
@@ -70,12 +202,14 @@ bool Pipeline::step() {
     ifid_.pc = pending_if_pc_;
     ifid_.valid = true;
     stall_kind_ = StallKind::None;
+    last_stall_ = true;
     return true;
   }
   if (stall_kind_ == StallKind::MemLoad) {
     pending_memwb_.mem_data = pending_mem_value_;
     memwb_ = pending_memwb_;
     stall_kind_ = StallKind::None;
+    last_stall_ = true;
     return true;
   }
 
@@ -93,8 +227,10 @@ bool Pipeline::step() {
     const std::string &wbname = prev_memwb.inst.name;
     if (wbname == "LW" || wbname == "LB" || wbname == "LH" || wbname == "LBU" || wbname == "LHU") {
       regs_.write(prev_memwb.rd, prev_memwb.mem_data);
+      if (tracing) trace_regs_changed.push_back(trace::RegWrite{prev_memwb.rd, prev_memwb.mem_data});
     } else {
       regs_.write(prev_memwb.rd, prev_memwb.alu_result);
+      if (tracing) trace_regs_changed.push_back(trace::RegWrite{prev_memwb.rd, prev_memwb.alu_result});
     }
   }
 
@@ -105,6 +241,7 @@ bool Pipeline::step() {
   }
   // handle pending interrupts: timer first, then UART
   if (csr_.pending_timer_interrupt()) {
+    trace_exception = "interrupt:timer";
     uint32_t cause_raw = (1u << 31) | 7u;
     uint32_t vec = csr_.handle_trap(cause_raw, 0u, pc_, true);
     pc_ = vec;
@@ -116,6 +253,7 @@ bool Pipeline::step() {
     csr_.set_mip_timer(false);
     return false;
   } else if (csr_.pending_uart_interrupt()) {
+    trace_exception = "interrupt:uart";
     uint32_t cause_raw = (1u << 31) | 3u;
     uint32_t vec = csr_.handle_trap(cause_raw, 0u, pc_, true);
     pc_ = vec;
@@ -142,6 +280,7 @@ bool Pipeline::step() {
       uint32_t phys = prev_exmem.alu_result;
       uint32_t cause = 0;
       if (mmu_ && !mmu_->translate(prev_exmem.alu_result, mmu::AccessType::Load, phys, cause)) {
+        trace_exception = "trap:load_page_fault";
         uint32_t vec = csr_.handle_trap(cause, prev_exmem.alu_result, prev_exmem.pc, false);
         pc_ = vec;
         ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
@@ -152,15 +291,19 @@ bool Pipeline::step() {
       bool use_dcache = dcache_ && !is_mmio && aligned;
       if (use_dcache) {
         auto res = dcache_->load32(phys);
+        push_cache_event("d", "load", phys, 4, res.second == 0, res.second);
         if (res.second == 0) {
           memwb_.mem_data = res.first;
+          push_mem_access("MEM", "LW", prev_exmem.alu_result, phys, 4, memwb_.mem_data, is_mmio, true, true);
         } else {
           stall_remaining_ = kCacheMissStallCycles;
           stall_kind_ = StallKind::MemLoad;
           pending_memwb_ = memwb_;
           pending_mem_value_ = res.first;
+          push_mem_access("MEM", "LW", prev_exmem.alu_result, phys, 4, pending_mem_value_, is_mmio, true, false);
           // Keep younger stages frozen, but clear current EX/MEM to avoid replaying this load.
           exmem_.valid = false;
+          last_stall_ = true;
           return true;
         }
       } else {
@@ -169,6 +312,7 @@ bool Pipeline::step() {
           dcache_->flush_all();
         }
         memwb_.mem_data = mem_.load32(phys);
+        push_mem_access("MEM", "LW", prev_exmem.alu_result, phys, 4, memwb_.mem_data, is_mmio, false, false);
         if (!dcache_ && uncached_latency_ > 0 && !mem_.is_mapped_device_range(phys, 4)) {
           cycles_ += static_cast<uint64_t>(uncached_latency_);
         }
@@ -177,6 +321,7 @@ bool Pipeline::step() {
       uint32_t phys = prev_exmem.alu_result;
       uint32_t cause = 0;
       if (mmu_ && !mmu_->translate(prev_exmem.alu_result, mmu::AccessType::Load, phys, cause)) {
+        trace_exception = "trap:load_page_fault";
         uint32_t vec = csr_.handle_trap(cause, prev_exmem.alu_result, prev_exmem.pc, false);
         pc_ = vec;
         ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
@@ -184,6 +329,7 @@ bool Pipeline::step() {
       }
       if (dcache_ && !mem_.is_mapped_device_range(phys, 1)) {
         auto res = dcache_->load8(phys);
+        push_cache_event("d", "load", phys, 1, res.second == 0, res.second);
         if (res.second == 0) {
           uint32_t byte = res.first & 0xffu;
           if (mname == "LB") {
@@ -192,6 +338,7 @@ bool Pipeline::step() {
           } else {
             memwb_.mem_data = byte;
           }
+          push_mem_access("MEM", mname, prev_exmem.alu_result, phys, 1, memwb_.mem_data, false, true, true);
         } else {
           stall_remaining_ = kCacheMissStallCycles;
           stall_kind_ = StallKind::MemLoad;
@@ -203,11 +350,14 @@ bool Pipeline::step() {
           } else {
             pending_mem_value_ = byte;
           }
+          push_mem_access("MEM", mname, prev_exmem.alu_result, phys, 1, pending_mem_value_, false, true, false);
           // Keep younger stages frozen, but clear current EX/MEM to avoid replaying this load.
           exmem_.valid = false;
+          last_stall_ = true;
           return true;
         }
       } else {
+        bool is_mmio = mem_.is_mapped_device_range(phys, 1);
         uint32_t byte = mem_.load8(phys);
         if (mname == "LB") {
           int32_t sval = static_cast<int32_t>(static_cast<int8_t>(byte & 0xff));
@@ -215,6 +365,7 @@ bool Pipeline::step() {
         } else {
           memwb_.mem_data = byte;
         }
+        push_mem_access("MEM", mname, prev_exmem.alu_result, phys, 1, memwb_.mem_data, is_mmio, false, false);
         if (!dcache_ && uncached_latency_ > 0 && !mem_.is_mapped_device_range(phys, 1)) {
           cycles_ += static_cast<uint64_t>(uncached_latency_);
         }
@@ -223,6 +374,7 @@ bool Pipeline::step() {
       uint32_t phys = prev_exmem.alu_result;
       uint32_t cause = 0;
       if (mmu_ && !mmu_->translate(prev_exmem.alu_result, mmu::AccessType::Load, phys, cause)) {
+        trace_exception = "trap:load_page_fault";
         uint32_t vec = csr_.handle_trap(cause, prev_exmem.alu_result, prev_exmem.pc, false);
         pc_ = vec;
         ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
@@ -233,6 +385,7 @@ bool Pipeline::step() {
       bool use_dcache = dcache_ && !is_mmio && aligned;
       if (use_dcache) {
         auto res = dcache_->load16(phys);
+        push_cache_event("d", "load", phys, 2, res.second == 0, res.second);
         if (res.second == 0) {
           uint32_t half = res.first & 0xffffu;
           if (mname == "LH") {
@@ -241,6 +394,7 @@ bool Pipeline::step() {
           } else {
             memwb_.mem_data = half;
           }
+          push_mem_access("MEM", mname, prev_exmem.alu_result, phys, 2, memwb_.mem_data, is_mmio, true, true);
         } else {
           stall_remaining_ = kCacheMissStallCycles;
           stall_kind_ = StallKind::MemLoad;
@@ -252,8 +406,10 @@ bool Pipeline::step() {
           } else {
             pending_mem_value_ = half;
           }
+          push_mem_access("MEM", mname, prev_exmem.alu_result, phys, 2, pending_mem_value_, is_mmio, true, false);
           // Keep younger stages frozen, but clear current EX/MEM to avoid replaying this load.
           exmem_.valid = false;
+          last_stall_ = true;
           return true;
         }
       } else {
@@ -268,6 +424,7 @@ bool Pipeline::step() {
         } else {
           memwb_.mem_data = half;
         }
+        push_mem_access("MEM", mname, prev_exmem.alu_result, phys, 2, memwb_.mem_data, is_mmio, false, false);
         if (!dcache_ && uncached_latency_ > 0 && !mem_.is_mapped_device_range(phys, 2)) {
           cycles_ += static_cast<uint64_t>(uncached_latency_);
         }
@@ -276,6 +433,7 @@ bool Pipeline::step() {
       uint32_t phys = prev_exmem.alu_result;
       uint32_t cause = 0;
       if (mmu_ && !mmu_->translate(prev_exmem.alu_result, mmu::AccessType::Store, phys, cause)) {
+        trace_exception = "trap:store_page_fault";
         uint32_t vec = csr_.handle_trap(cause, prev_exmem.alu_result, prev_exmem.pc, false);
         pc_ = vec;
         ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
@@ -284,9 +442,16 @@ bool Pipeline::step() {
       bool is_mmio = mem_.is_mapped_device_range(phys, 4);
       bool aligned = ((phys & 0x3u) == 0);
       bool use_dcache = dcache_ && !is_mmio && aligned;
-      if (use_dcache) dcache_->store32(phys, prev_exmem.rs2_val);
+      if (use_dcache) {
+        uint64_t d_hits_before = dcache_->hits();
+        int latency = dcache_->store32(phys, prev_exmem.rs2_val);
+        bool hit = dcache_->hits() > d_hits_before;
+        push_cache_event("d", "store", phys, 4, hit, latency);
+        push_mem_access("MEM", "SW", prev_exmem.alu_result, phys, 4, prev_exmem.rs2_val, false, true, hit);
+      }
       else {
         mem_.store32(phys, prev_exmem.rs2_val);
+        push_mem_access("MEM", "SW", prev_exmem.alu_result, phys, 4, prev_exmem.rs2_val, is_mmio, false, false);
         if (dcache_ && !is_mmio && !aligned) {
           // Keep cache coherent after direct misaligned write.
           dcache_->flush_all();
@@ -300,14 +465,24 @@ bool Pipeline::step() {
       uint32_t phys = prev_exmem.alu_result;
       uint32_t cause = 0;
       if (mmu_ && !mmu_->translate(prev_exmem.alu_result, mmu::AccessType::Store, phys, cause)) {
+        trace_exception = "trap:store_page_fault";
         uint32_t vec = csr_.handle_trap(cause, prev_exmem.alu_result, prev_exmem.pc, false);
         pc_ = vec;
         ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
         return false;
       }
       bool is_mmio = mem_.is_mapped_device_range(phys, 1);
-      if (dcache_ && !is_mmio) dcache_->store8(phys, static_cast<uint8_t>(prev_exmem.rs2_val & 0xffu));
-      else mem_.store8(phys, static_cast<uint8_t>(prev_exmem.rs2_val & 0xffu));
+      if (dcache_ && !is_mmio) {
+        uint64_t d_hits_before = dcache_->hits();
+        int latency = dcache_->store8(phys, static_cast<uint8_t>(prev_exmem.rs2_val & 0xffu));
+        bool hit = dcache_->hits() > d_hits_before;
+        push_cache_event("d", "store", phys, 1, hit, latency);
+        push_mem_access("MEM", "SB", prev_exmem.alu_result, phys, 1, static_cast<uint32_t>(prev_exmem.rs2_val & 0xffu), false, true, hit);
+      }
+      else {
+        mem_.store8(phys, static_cast<uint8_t>(prev_exmem.rs2_val & 0xffu));
+        push_mem_access("MEM", "SB", prev_exmem.alu_result, phys, 1, static_cast<uint32_t>(prev_exmem.rs2_val & 0xffu), is_mmio, false, false);
+      }
       if (!dcache_ && uncached_latency_ > 0 && !is_mmio) {
         cycles_ += static_cast<uint64_t>(uncached_latency_);
       }
@@ -315,6 +490,7 @@ bool Pipeline::step() {
       uint32_t phys = prev_exmem.alu_result;
       uint32_t cause = 0;
       if (mmu_ && !mmu_->translate(prev_exmem.alu_result, mmu::AccessType::Store, phys, cause)) {
+        trace_exception = "trap:store_page_fault";
         uint32_t vec = csr_.handle_trap(cause, prev_exmem.alu_result, prev_exmem.pc, false);
         pc_ = vec;
         ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
@@ -323,9 +499,16 @@ bool Pipeline::step() {
       bool is_mmio = mem_.is_mapped_device_range(phys, 2);
       bool aligned = ((phys & 0x1u) == 0);
       bool use_dcache = dcache_ && !is_mmio && aligned;
-      if (use_dcache) dcache_->store16(phys, static_cast<uint16_t>(prev_exmem.rs2_val & 0xffffu));
+      if (use_dcache) {
+        uint64_t d_hits_before = dcache_->hits();
+        int latency = dcache_->store16(phys, static_cast<uint16_t>(prev_exmem.rs2_val & 0xffffu));
+        bool hit = dcache_->hits() > d_hits_before;
+        push_cache_event("d", "store", phys, 2, hit, latency);
+        push_mem_access("MEM", "SH", prev_exmem.alu_result, phys, 2, static_cast<uint32_t>(prev_exmem.rs2_val & 0xffffu), false, true, hit);
+      }
       else {
         mem_.store16(phys, static_cast<uint16_t>(prev_exmem.rs2_val & 0xffffu));
+        push_mem_access("MEM", "SH", prev_exmem.alu_result, phys, 2, static_cast<uint32_t>(prev_exmem.rs2_val & 0xffffu), is_mmio, false, false);
         if (dcache_ && !is_mmio && !aligned) {
           // Keep cache coherent after direct misaligned write.
           dcache_->flush_all();
@@ -345,6 +528,7 @@ bool Pipeline::step() {
   if (prev_idex.valid) {
     // handle ECALL -> synchronous trap
     if (prev_idex.inst.name == "ECALL") {
+      trace_exception = "trap:ecall";
       int priv = csr_.get_privilege();
       uint32_t cause_num = (priv == 0) ? 8u : (priv == 1 ? 9u : 11u);
       uint32_t vec = csr_.handle_trap(cause_num, 0u, prev_idex.pc, false);
@@ -447,6 +631,7 @@ bool Pipeline::step() {
           if (dcache_) dcache_->flush_all();
         }
       } catch (const CSR::CSRException &ex) {
+        trace_exception = "trap:csr_exception";
         uint32_t vec = csr_.handle_trap(ex.cause(), 0u, prev_idex.pc, false);
         pc_ = vec;
         // flush pipeline
@@ -462,6 +647,7 @@ bool Pipeline::step() {
       int priv = csr_.get_privilege();
       if (priv == 0) {
         // illegal in U-mode
+        trace_exception = "trap:illegal_instruction";
         uint32_t vec = csr_.handle_trap(2u, 0u, prev_idex.pc, false);
         pc_ = vec;
         ifid_.valid = false; idex_.valid = false; exmem_.valid = false; memwb_.valid = false;
@@ -557,6 +743,7 @@ bool Pipeline::step() {
       uint32_t phys_pc = pc_;
       uint32_t cause_out = 0;
       if (mmu_ && !mmu_->translate(pc_, mmu::AccessType::Fetch, phys_pc, cause_out)) {
+        trace_exception = "trap:instruction_page_fault";
         uint32_t vec = csr_.handle_trap(cause_out, pc_, pc_, false);
         pc_ = vec;
         ifid_.valid = false;
@@ -568,6 +755,7 @@ bool Pipeline::step() {
       // use icache for instruction fetch (physical address) if configured
       if (icache_) {
         auto res = icache_->load32(phys_pc);
+        push_cache_event("i", "fetch", phys_pc, 4, res.second == 0, res.second);
         if (res.second == 0) {
           uint32_t word = res.first;
           // debug: print first few fetched instructions
@@ -580,6 +768,7 @@ bool Pipeline::step() {
           ifid_.inst = isa::decode(word);
           ifid_.pc = pc_;
           ifid_.valid = true;
+          push_mem_access("IF", "FETCH", pc_, phys_pc, 4, word, false, true, true);
           pc_ += 4;
         } else {
           // miss: stall pipeline for fixed 10 cycles then deliver
@@ -587,13 +776,16 @@ bool Pipeline::step() {
           stall_kind_ = StallKind::If;
           pending_if_word_ = res.first;
           pending_if_pc_ = pc_;
+          push_mem_access("IF", "FETCH", pc_, phys_pc, 4, pending_if_word_, false, true, false);
           // This fetch is already accepted; advance PC now and clear stale IF/ID.
           pc_ += 4;
           ifid_.valid = false;
+          last_stall_ = true;
           return true;
         }
       } else {
         uint32_t word = mem_.load32(phys_pc);
+        push_mem_access("IF", "FETCH", pc_, phys_pc, 4, word, false, false, false);
         if (uncached_latency_ > 0 && !mem_.is_mapped_device_range(phys_pc, 4)) {
           cycles_ += static_cast<uint64_t>(uncached_latency_);
         }
@@ -638,6 +830,15 @@ void Pipeline::configure_cache(bool enable, const CacheConfig& cfg) {
     icache_ = nullptr;
     dcache_ = nullptr;
   }
+}
+
+bool Pipeline::enable_trace_json(const std::string& target, std::string* error) {
+  trace_writer_ = trace::TraceWriter::Create(target, error);
+  return static_cast<bool>(trace_writer_);
+}
+
+void Pipeline::disable_trace_json() {
+  trace_writer_.reset();
 }
 
 void Pipeline::start_uart_stdin_bridge() {

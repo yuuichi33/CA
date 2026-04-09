@@ -16,7 +16,7 @@ enable_testing()
 add_test(NAME decoder_test COMMAND test_decoder)
 
 # CPU library and single-cycle test
-add_library(cpu STATIC src/cpu/registers.cpp src/cpu/alu.cpp src/cpu/single_cycle.cpp src/cpu/pipeline.cpp src/mem/memory.cpp src/cache/simple_cache.cpp src/cpu/csr.cpp src/periph/timer.cpp src/periph/timer_mmio.cpp src/periph/tohost_mmio.cpp src/periph/uart_mmio.cpp src/mmu/mmu.cpp src/elf/elf_loader.cpp)
+add_library(cpu STATIC src/cpu/registers.cpp src/cpu/alu.cpp src/cpu/single_cycle.cpp src/cpu/pipeline.cpp src/mem/memory.cpp src/cache/simple_cache.cpp src/cpu/csr.cpp src/periph/timer.cpp src/periph/timer_mmio.cpp src/periph/tohost_mmio.cpp src/periph/uart_mmio.cpp src/mmu/mmu.cpp src/elf/elf_loader.cpp src/trace/trace.cpp)
 target_include_directories(cpu PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(cpu PRIVATE isa)
 

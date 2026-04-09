@@ -93,6 +93,50 @@ bash test_all.sh --csv docs/rv32ui_perf.csv --cache-penalty 10
 ./build/mycpu --quiet --load benchmarks/matmul.elf --no-cache --cache-penalty 10
 ```
 
+### 4) 生成 JSONL Trace（步骤3）
+
+```bash
+# 输出到文件
+./build/mycpu --load benchmarks/hello.elf --trace-json tmp/hello_trace.jsonl --max-cycles 500
+
+# 输出到 stdout（可被 trace server 管道消费）
+./build/mycpu --load benchmarks/hello.elf --trace-json stdout --max-cycles 500
+
+# 断点示例（PC 命中即停止）
+./build/mycpu --load benchmarks/hello.elf --trace-json tmp/hello_trace.jsonl --breakpoint 0x100 --max-cycles 1000
+```
+
+### 5) Trace 中间件与浏览器监视（步骤4, WSL1）
+
+当前仓库提供零依赖 Python 版本 trace server：
+
+```bash
+chmod +x tools/run_trace_demo.sh
+./tools/run_trace_demo.sh
+```
+
+浏览器打开：`http://localhost:8080`
+
+健康检查：
+
+```bash
+curl -s http://localhost:8080/health
+```
+
+### 6) D3 可视化面板（步骤5）
+
+启动步骤4服务后，打开浏览器：`http://localhost:8080`。
+
+页面已实现：
+- 播放/暂停/单步/速率控制/按 cycle 跳转。
+- 五级流水线视图（IF/ID/EX/MEM/WB）。
+- 最近 32 cycle 的指令时间轴。
+- 寄存器窗口 x0..x31（按 `regs_changed` 高亮）。
+- I/D Cache 命中率、cache 事件与当周期访存事件。
+- Memory Inspector（按地址窗口回放，基于 `SB/SH/SW` store 事件重建已知字节）。
+
+详情见：[web/README.md](web/README.md)
+
 ## 项目结构（File Tree）
 
 说明：以下是当前工作区的结构化树；`build/` 与 `riscv-tests/` 内部内容非常大，树中只展开关键层级。
@@ -133,6 +177,9 @@ camycpu/
 │   └── mt/
 ├── src/
 │   ├── main.cpp
+│   ├── trace/
+│   │   ├── trace.h
+│   │   └── trace.cpp
 │   ├── cache/
 │   │   ├── cache_config.h
 │   │   ├── simple_cache.h
@@ -192,6 +239,12 @@ camycpu/
     ├── rv32ui_collect.log
     └── fail_debug/
         └── rv32ui-p-*_*.out
+
+  新增（可视化中间件）：
+  - [tools/trace_server.py](tools/trace_server.py)：trace 中间件（SSE + 静态托管）。
+  - [tools/run_trace_demo.sh](tools/run_trace_demo.sh)：一键启动 demo（会 spawn `mycpu`）。
+  - [web/index.html](web/index.html)、[web/app.js](web/app.js)、[web/style.css](web/style.css)：最小浏览器监视页。
+  - [web/README.md](web/README.md)：步骤5前端使用说明。
 ```
 
 ## 文件清单（逐项说明）

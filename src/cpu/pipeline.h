@@ -8,11 +8,13 @@
 #include "periph/timer.h"
 #include "periph/timer_mmio.h"
 #include "periph/uart_mmio.h"
+#include "trace/trace.h"
 #include <cstdint>
 #include <thread>
 #include <atomic>
 #include <string>
 #include <vector>
+#include <memory>
 
 namespace cpu {
 
@@ -95,6 +97,10 @@ public:
   uint64_t icache_hits() const { return icache_ ? icache_->hits() : 0; }
   uint64_t dcache_accesses() const { return dcache_ ? dcache_->accesses() : 0; }
   uint64_t dcache_hits() const { return dcache_ ? dcache_->hits() : 0; }
+  // trace output (JSONL)
+  bool enable_trace_json(const std::string& target, std::string* error = nullptr);
+  void disable_trace_json();
+  bool trace_enabled() const { return static_cast<bool>(trace_writer_); }
   // control verbose debug printing (for mmu)
   void set_verbose(bool v);
   std::string dump_regs() const;
@@ -136,6 +142,7 @@ private:
   std::thread uart_stdin_thread_;
   std::atomic<bool> uart_stdin_running_{false};
   std::atomic<bool> uart_stdin_stop_{false};
+  std::unique_ptr<trace::TraceWriter> trace_writer_;
 };
 
 } // namespace cpu

@@ -28,9 +28,12 @@ int main(int argc, char** argv) {
   bool run_cycles_set = false;
   bool verbose = false;
   bool step_mode = false;
+  bool pause_on_start = false;
   bool quiet = false;
   bool no_cache = false;
   int cache_penalty = 10;
+  std::string trace_json_target;
+  std::vector<uint32_t> breakpoints;
   std::vector<std::string> cli_argv;
   std::vector<std::string> cli_envp;
 
@@ -62,6 +65,22 @@ int main(int argc, char** argv) {
       if (i + 1 < argc) { cache_penalty = static_cast<int>(parse_u64(argv[++i])); } else { std::cerr << "--cache-penalty requires a number\n"; return 1; }
     } else if (a == "--step" || a == "-s") {
       step_mode = true;
+    } else if (a == "--pause-on-start") {
+      pause_on_start = true;
+    } else if (a == "--trace-json") {
+      if (i + 1 < argc) {
+        trace_json_target = argv[++i];
+      } else {
+        std::cerr << "--trace-json requires a target (stdout or file path)\n";
+        return 1;
+      }
+    } else if (a == "--breakpoint" || a == "-b") {
+      if (i + 1 < argc) {
+        breakpoints.push_back(static_cast<uint32_t>(parse_u64(argv[++i])));
+      } else {
+        std::cerr << "--breakpoint requires an address\n";
+        return 1;
+      }
     } else if (a == "--arg" || a == "-a") {
       if (i + 1 < argc) { cli_argv.push_back(argv[++i]); } else { std::cerr << "--arg requires a value\n"; return 1; }
     } else if (a == "--env" || a == "-e") {
@@ -70,13 +89,18 @@ int main(int argc, char** argv) {
       if (i + 1 < argc) { uart_ier_val = static_cast<uint32_t>(parse_u64(argv[++i])); } else { std::cerr << "--uart-ier requires a value\n"; return 1; }
     } else if (a == "--cycles" || a == "-c") {
       if (i + 1 < argc) { run_cycles = parse_u64(argv[++i]); run_cycles_set = true; } else { std::cerr << "--cycles requires a number\n"; return 1; }
+    } else if (a == "--max-cycles") {
+      if (i + 1 < argc) { run_cycles = parse_u64(argv[++i]); run_cycles_set = true; } else { std::cerr << "--max-cycles requires a number\n"; return 1; }
     } else if (a == "--help" || a == "-h") {
-      std::cout << "Usage: mycpu [--uart-stdin|-u] [--load <file>|-l <file>] [--mtvec <addr>|-m <addr>] [--timer-interval <n>] [--timer-mtimecmp <v>] [--timer-enable] [--uart-ier <v>] [--cycles|-c <n>] [--verbose|-v] [--step|-s] [--arg|-a <arg>] [--env|-e <key=value>]" << std::endl;
+      std::cout << "Usage: mycpu [--uart-stdin|-u] [--load <file>|-l <file>] [--mtvec <addr>|-m <addr>] [--timer-interval <n>] [--timer-mtimecmp <v>] [--timer-enable] [--uart-ier <v>] [--cycles|-c <n>] [--max-cycles <n>] [--trace-json <stdout|file>] [--breakpoint|-b <addr>] [--pause-on-start] [--verbose|-v] [--step|-s] [--arg|-a <arg>] [--env|-e <key=value>]" << std::endl;
       return 0;
     }
   }
 
-  if (!quiet) std::cout << "myCPU simulator starting" << (enable_uart_bridge ? " with UART stdin bridge" : "") << "\n";
+  const bool trace_to_stdout = (trace_json_target == "stdout" || trace_json_target == "-");
+  std::ostream& ui_out = trace_to_stdout ? std::cerr : std::cout;
+
+  if (!quiet) ui_out << "myCPU simulator starting" << (enable_uart_bridge ? " with UART stdin bridge" : "") << "\n";
 
   // If quiet mode requested, silence stderr to avoid debug/driver noise
   if (quiet) {
@@ -101,12 +125,24 @@ int main(int argc, char** argv) {
     p.configure_cache(!no_cache, cfg);
     p.set_uncached_latency(no_cache ? cache_penalty : 0);
   }
+
+  if (!trace_json_target.empty()) {
+    std::string trace_error;
+    if (!p.enable_trace_json(trace_json_target, &trace_error)) {
+      std::cerr << (trace_error.empty() ? "failed to enable trace output" : trace_error) << "\n";
+      return 1;
+    }
+    if (!quiet) {
+      ui_out << "trace-json enabled: " << trace_json_target << "\n";
+    }
+  }
+
   if (!elf_path.empty()) {
     if (!p.load_elf(elf_path, cli_argv, cli_envp)) {
       std::cerr << "failed to load ELF: " << elf_path << "\n";
       return 1;
     }
-    if (!quiet) std::cout << "loaded ELF: " << elf_path << " entry PC=" << p.pc() << "\n";
+    if (!quiet) ui_out << "loaded ELF: " << elf_path << " entry PC=" << p.pc() << "\n";
   }
 
   // apply CLI-configured CSRs/devices
@@ -121,26 +157,26 @@ int main(int argc, char** argv) {
   // log CLI-provided argv/envp to runtime log
   if (!quiet) {
     if (cli_argv.empty() && cli_envp.empty()) {
-      std::cout << "runtime: no args/env\n";
+      ui_out << "runtime: no args/env\n";
     } else {
       if (!cli_argv.empty()) {
-        std::cout << "runtime argv=[";
+        ui_out << "runtime argv=[";
         for (size_t i = 0; i < cli_argv.size(); ++i) {
-          if (i) std::cout << ", ";
-          std::cout << '"' << cli_argv[i] << '"';
+          if (i) ui_out << ", ";
+          ui_out << '"' << cli_argv[i] << '"';
         }
-        std::cout << "]";
+        ui_out << "]";
       }
       if (!cli_envp.empty()) {
-        if (!cli_argv.empty()) std::cout << ' ';
-        std::cout << "runtime env=[";
+        if (!cli_argv.empty()) ui_out << ' ';
+        ui_out << "runtime env=[";
         for (size_t i = 0; i < cli_envp.size(); ++i) {
-          if (i) std::cout << ", ";
-          std::cout << '"' << cli_envp[i] << '"';
+          if (i) ui_out << ", ";
+          ui_out << '"' << cli_envp[i] << '"';
         }
-        std::cout << "]";
+        ui_out << "]";
       }
-      std::cout << "\n";
+      ui_out << "\n";
     }
   }
 
@@ -158,47 +194,47 @@ int main(int argc, char** argv) {
     return s;
   };
 
-  auto report_crash = [&p](const std::exception& ex) {
-    std::cout << "FATAL: " << ex.what() << "\n";
-    std::cout << "Crash OOB: access=" << (p.memory().last_oob_is_write() ? "write" : "read")
-              << " size=" << p.memory().last_oob_size()
-              << " addr=0x" << std::hex << p.memory().last_oob_addr() << std::dec << "\n";
-    std::cout << "Crash Regs: "
-              << "sp=0x" << std::hex << p.regs().read(2)
-              << " s0=0x" << p.regs().read(8)
-              << " s1=0x" << p.regs().read(9)
-              << " a0=0x" << p.regs().read(10)
-              << " a1=0x" << p.regs().read(11)
-              << " a2=0x" << p.regs().read(12)
-              << " a3=0x" << p.regs().read(13)
-              << " a4=0x" << p.regs().read(14)
-              << " a5=0x" << p.regs().read(15)
-              << std::dec << "\n";
+  auto report_crash = [&p, &ui_out](const std::exception& ex) {
+    ui_out << "FATAL: " << ex.what() << "\n";
+    ui_out << "Crash OOB: access=" << (p.memory().last_oob_is_write() ? "write" : "read")
+           << " size=" << p.memory().last_oob_size()
+           << " addr=0x" << std::hex << p.memory().last_oob_addr() << std::dec << "\n";
+    ui_out << "Crash Regs: "
+           << "sp=0x" << std::hex << p.regs().read(2)
+           << " s0=0x" << p.regs().read(8)
+           << " s1=0x" << p.regs().read(9)
+           << " a0=0x" << p.regs().read(10)
+           << " a1=0x" << p.regs().read(11)
+           << " a2=0x" << p.regs().read(12)
+           << " a3=0x" << p.regs().read(13)
+           << " a4=0x" << p.regs().read(14)
+           << " a5=0x" << p.regs().read(15)
+           << std::dec << "\n";
 
     if (p.exmem().valid) {
-      std::cout << "Crash Stage: MEM pc=0x" << std::hex << p.exmem().pc
-                << " inst=" << p.exmem().inst.name
-                << " alu=0x" << p.exmem().alu_result << std::dec << "\n";
+      ui_out << "Crash Stage: MEM pc=0x" << std::hex << p.exmem().pc
+             << " inst=" << p.exmem().inst.name
+             << " alu=0x" << p.exmem().alu_result << std::dec << "\n";
     } else if (p.idex().valid) {
-      std::cout << "Crash Stage: EX pc=0x" << std::hex << p.idex().pc
-                << " inst=" << p.idex().inst.name << std::dec << "\n";
+      ui_out << "Crash Stage: EX pc=0x" << std::hex << p.idex().pc
+             << " inst=" << p.idex().inst.name << std::dec << "\n";
     } else if (p.ifid().valid) {
-      std::cout << "Crash Stage: ID pc=0x" << std::hex << p.ifid().pc
-                << " inst=" << p.ifid().inst.name << std::dec << "\n";
+      ui_out << "Crash Stage: ID pc=0x" << std::hex << p.ifid().pc
+             << " inst=" << p.ifid().inst.name << std::dec << "\n";
     }
 
     uint32_t cur_pc = p.pc();
-    std::cout << "Crash PC: 0x" << std::hex << cur_pc;
+    ui_out << "Crash PC: 0x" << std::hex << cur_pc;
     if (cur_pc + 4 <= static_cast<uint32_t>(p.memory().size())) {
       try {
         uint32_t word = p.memory().load32(cur_pc);
         auto d = isa::decode(word);
-        std::cout << " instr_word=0x" << word << " instr=" << d.name;
+        ui_out << " instr_word=0x" << word << " instr=" << d.name;
       } catch (...) {
         // ignore secondary read failure while reporting crash context
       }
     }
-    std::cout << std::dec << "\n";
+    ui_out << std::dec << "\n";
   };
 
   auto step_once = [&]() -> bool {
@@ -214,24 +250,44 @@ int main(int argc, char** argv) {
     }
   };
 
+  auto hit_breakpoint = [&]() -> bool {
+    for (uint32_t bp : breakpoints) {
+      if (p.pc() == bp) {
+        ui_out << "breakpoint hit at pc=0x" << std::hex << p.pc() << std::dec << "\n";
+        return true;
+      }
+    }
+    return false;
+  };
+
+  if (pause_on_start && running.load()) {
+    ui_out << "(pause-on-start) press Enter to start, 'q' to quit\n";
+    std::string l = read_tty_line();
+    if (!l.empty() && (l[0] == 'q' || l[0] == 'Q')) {
+      running.store(false);
+    }
+  }
+
   if (run_cycles_set) {
     for (uint64_t i = 0; i < run_cycles && running.load(); ++i) {
+      if (hit_breakpoint()) { running.store(false); break; }
       if (!step_once()) return 2;
       if (periph::tohost_exit_code.load() >= 0) { running.store(false); break; }
-      if (verbose) std::cout << p.dump_regs() << "\n";
+      if (verbose) ui_out << p.dump_regs() << "\n";
       if (step_mode) {
-        std::cout << "(step) press Enter to continue, 'q' to quit\n";
+        ui_out << "(step) press Enter to continue, 'q' to quit\n";
         std::string l = read_tty_line();
         if (!l.empty() && (l[0] == 'q' || l[0] == 'Q')) { running.store(false); break; }
       }
     }
   } else {
     while (running.load()) {
+      if (hit_breakpoint()) { running.store(false); break; }
       if (!step_once()) return 2;
       if (periph::tohost_exit_code.load() >= 0) { running.store(false); break; }
-      if (verbose) std::cout << p.dump_regs() << "\n";
+      if (verbose) ui_out << p.dump_regs() << "\n";
       if (step_mode) {
-        std::cout << "(step) press Enter to continue, 'q' to quit\n";
+        ui_out << "(step) press Enter to continue, 'q' to quit\n";
         std::string l = read_tty_line();
         if (!l.empty() && (l[0] == 'q' || l[0] == 'Q')) { running.store(false); break; }
       } else {
@@ -255,12 +311,12 @@ int main(int argc, char** argv) {
   double d_pct = (d_acc > 0.0) ? (d_hits / d_acc * 100.0) : 0.0;
 
   // final single-line performance summary (always printed)
-  std::cout << "Cycles: " << cycles << ", Instrs: " << instrs
-            << ", I-Cache Hit: " << std::fixed << std::setprecision(2) << i_pct << "%"
-            << ", D-Cache Hit: " << std::fixed << std::setprecision(2) << d_pct << "%"
-            << std::endl;
+    ui_out << "Cycles: " << cycles << ", Instrs: " << instrs
+      << ", I-Cache Hit: " << std::fixed << std::setprecision(2) << i_pct << "%"
+      << ", D-Cache Hit: " << std::fixed << std::setprecision(2) << d_pct << "%"
+      << std::endl;
 
-  if (!quiet) std::cout << "myCPU simulator exiting" << std::endl;
+    if (!quiet) ui_out << "myCPU simulator exiting" << std::endl;
 
   return (tohost_rc >= 0) ? tohost_rc : 0;
 }
