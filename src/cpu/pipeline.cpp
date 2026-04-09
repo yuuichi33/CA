@@ -556,6 +556,24 @@ bool Pipeline::step() {
       memwb_.valid = false;
       return false;
     }
+
+    // handle SRET -> return from delegated supervisor trap
+    if (prev_idex.inst.name == "SRET") {
+      // U-mode execution is illegal.
+      if (csr_.get_privilege() == 0) {
+        trace_exception = "trap:illegal_instruction";
+        uint32_t vec = csr_.handle_trap(2u, 0u, prev_idex.pc, false);
+        pc_ = vec;
+      } else {
+        csr_.sret_restore();
+        pc_ = csr_.read(0x141); // sepc
+      }
+      ifid_.valid = false;
+      idex_.valid = false;
+      exmem_.valid = false;
+      memwb_.valid = false;
+      return false;
+    }
     // operand fetch with forwarding: prioritize EX/MEM, then MEM/WB
     uint32_t a = prev_idex.rs1_val;
     uint32_t b = prev_idex.rs2_val;

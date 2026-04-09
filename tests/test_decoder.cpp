@@ -29,6 +29,10 @@ static uint32_t encodeB(int32_t imm, uint32_t rs2, uint32_t rs1, uint32_t funct3
   return (imm12 << 31) | (imm11 << 7) | (imm10_5 << 25) | (imm4_1 << 8) | (rs2 << 20) | (rs1 << 15) | (funct3 << 12) | opcode;
 }
 
+static uint32_t encodeSYSTEM(uint32_t funct12) {
+  return (funct12 << 20) | 0x73u;
+}
+
 int main() {
   bool ok = true;
 
@@ -64,6 +68,11 @@ int main() {
   uint32_t inst_beq = encodeB(12, 2, 1, 0x0, 0x63);
   auto dbeq = decode(inst_beq);
   if (dbeq.name != "BEQ" || dbeq.rs1 != 1 || dbeq.rs2 != 2 || dbeq.imm != 12) { std::cerr << "BEQ failed" << std::endl; ok = false; } else std::cout << "BEQ ok" << std::endl;
+
+  // SRET (SYSTEM funct12=0x102)
+  uint32_t inst_sret = encodeSYSTEM(0x102);
+  auto dsret = decode(inst_sret);
+  if (dsret.name != "SRET") { std::cerr << "SRET decode failed" << std::endl; ok = false; } else std::cout << "SRET ok" << std::endl;
 
   return ok ? 0 : 1;
 }

@@ -130,6 +130,7 @@ Decoded decode(uint32_t inst) {
           d.zimm = d.rs1; // for CSR immediate variants
           if (inst == 0x00000073) d.name = "ECALL";
           else if (funct12 == 0x302 && d.funct3 == 0x0) d.name = "MRET";
+          else if (funct12 == 0x102 && d.funct3 == 0x0) d.name = "SRET";
           else if (funct12 == 0x120 && d.funct3 == 0x0) d.name = "SFENCE.VMA";
           else if (d.funct3 == 0x1) d.name = "CSRRW";
           else if (d.funct3 == 0x2) d.name = "CSRRS";
