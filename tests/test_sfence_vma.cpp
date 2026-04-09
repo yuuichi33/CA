@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include "cpu/pipeline.h"
+#include "cache/cache_config.h"
 
 using namespace cpu;
 
@@ -11,6 +12,17 @@ static uint32_t encodeI(int32_t imm, uint32_t rs1, uint32_t funct3, uint32_t rd,
 
 static uint32_t encodeU(uint32_t imm20, uint32_t rd, uint32_t opcode) {
   return (imm20 << 12) | (rd << 7) | opcode;
+}
+
+static uint32_t encodeS(int32_t imm, uint32_t rs2, uint32_t rs1, uint32_t funct3, uint32_t opcode) {
+  uint32_t uimm = static_cast<uint32_t>(imm) & 0xfffu;
+  uint32_t imm11_5 = (uimm >> 5) & 0x7fu;
+  uint32_t imm4_0 = uimm & 0x1fu;
+  return (imm11_5 << 25) | (rs2 << 20) | (rs1 << 15) | (funct3 << 12) | (imm4_0 << 7) | opcode;
+}
+
+static uint32_t encodeSYSTEM(uint32_t funct12) {
+  return (funct12 << 20) | 0x73u;
 }
 
 int main() {
@@ -94,6 +106,85 @@ int main() {
     for (int i = 0; i < 500; ++i) { p.step(); if (p.regs().read(3) != 0) break; }
     if (p.regs().read(3) == 0) { std::cerr << "second load did not complete (case B)\n"; return 11; }
     if (p.regs().read(3) != VAL2) { std::cerr << "with sfence: expected VAL2, got 0x" << std::hex << p.regs().read(3) << std::dec << "\n"; return 12; }
+  }
+
+  // Case C: SFENCE.VMA instruction path must make dirty PTE updates visible under write-back D-cache.
+  {
+    Pipeline p(std::vector<uint32_t>{});
+
+    CacheConfig cfg;
+    cfg.cache_size = 64;
+    cfg.line_size = 16;
+    cfg.associativity = 1;
+    cfg.write_back = true;
+    cfg.write_allocate = true;
+    cfg.miss_latency = 0;
+    p.configure_cache(true, cfg);
+
+    const uint32_t V3 = 0x40006000u;
+    const uint32_t P1 = 0x3000u;
+    const uint32_t P2 = 0x4000u;
+    const uint32_t OLDV = 0x33333333u;
+    const uint32_t NEWV = 0x44444444u;
+
+    // Data pages contents.
+    p.memory().store32(P1, OLDV);
+    p.memory().store32(P2, NEWV);
+
+    // Map code page and initial data mapping.
+    if (!p.mmu_map_4k(0x00000000u, 0x00000000u, 0x9u)) { std::cerr << "mmu_map_4k(code) failed\n"; return 13; }
+    if (!p.mmu_map_4k(V3, P1, 0x7u)) { std::cerr << "mmu_map_4k(V3->P1) failed\n"; return 14; }
+
+    // Locate the leaf PTE for V3.
+    uint32_t satp = p.csr().read(0x180);
+    uint32_t root_base = (satp & 0x003fffffu) << 12u;
+    uint32_t vpn1 = (V3 >> 22) & 0x3ffu;
+    uint32_t vpn0 = (V3 >> 12) & 0x3ffu;
+    uint32_t pte1_addr = root_base + vpn1 * 4u;
+    uint32_t pte1 = p.memory().load32(pte1_addr);
+    uint32_t level0_base = (pte1 >> 10u) << 12u;
+    uint32_t pte0_addr = level0_base + vpn0 * 4u;
+
+    // Program will store to pte0_addr virtually, so map that page identity.
+    uint32_t pte_page = pte0_addr & ~0xfffu;
+    if (!p.mmu_map_4k(pte_page, pte_page, 0x7u)) { std::cerr << "mmu_map_4k(pte page) failed\n"; return 15; }
+
+    uint32_t new_pte = ((P2 >> 12u) << 10u) | 0x7u;
+
+    auto hi20 = [](uint32_t x) -> uint32_t { return (x + 0x800u) >> 12u; };
+    auto lo12 = [&](uint32_t x) -> int32_t {
+      uint32_t hi = hi20(x);
+      return static_cast<int32_t>(x) - static_cast<int32_t>(hi << 12u);
+    };
+
+    // Assemble program directly into memory at PC=0:
+    //   x1 = pte0_addr
+    //   x2 = new_pte
+    //   sw x2,0(x1)
+    //   sfence.vma x0,x0
+    //   x3 = V3
+    //   lw x4,0(x3)
+    //   loop
+    p.memory().store32(0x00u, encodeU(hi20(pte0_addr), 1, 0x37));
+    p.memory().store32(0x04u, encodeI(lo12(pte0_addr), 1, 0x0, 1, 0x13));
+    p.memory().store32(0x08u, encodeU(hi20(new_pte), 2, 0x37));
+    p.memory().store32(0x0cu, encodeI(lo12(new_pte), 2, 0x0, 2, 0x13));
+    p.memory().store32(0x10u, encodeS(0, 2, 1, 0x2, 0x23));
+    p.memory().store32(0x14u, encodeSYSTEM(0x120)); // SFENCE.VMA x0, x0
+    p.memory().store32(0x18u, encodeU(hi20(V3), 3, 0x37));
+    p.memory().store32(0x1cu, encodeI(lo12(V3), 3, 0x0, 3, 0x13));
+    p.memory().store32(0x20u, encodeI(0, 3, 0x2, 4, 0x03));
+    p.memory().store32(0x24u, 0x0000006fu); // JAL x0,0
+
+    for (int i = 0; i < 800; ++i) {
+      p.step();
+      if (p.regs().read(4) == NEWV) break;
+    }
+    if (p.regs().read(4) != NEWV) {
+      std::cerr << "SFENCE instruction path did not expose updated PTE mapping, got 0x"
+                << std::hex << p.regs().read(4) << " expected 0x" << NEWV << std::dec << "\n";
+      return 16;
+    }
   }
 
   std::cout << "sfence vma tests ok\n";

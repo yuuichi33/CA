@@ -1,6 +1,6 @@
 # SPEEDUP REPORT
 
-Generated on 2026-04-09 from `docs/rv32ui_perf.csv` (cache on) and `docs/rv32ui_perf_nocache.csv` (no-cache, `--cache-penalty 10`).
+Generated on 2026-04-09 from `archive/docs-history/csv-legacy/rv32ui_perf.csv` (cache on) and `archive/docs-history/csv-legacy/rv32ui_perf_nocache.csv` (no-cache, `--cache-penalty 10`).
 
 Summary
 -------

@@ -59,11 +59,13 @@
       </div>
 
       <h3>性能反馈（最近 1000 Cycle）</h3>
-      <svg id="perfSvg" role="img" aria-label="IPC and D-Cache hit rate trend"></svg>
+      <svg id="perfSvg" role="img" aria-label="IPC, D-Cache hit rate and cache stall trend"></svg>
       <div class="perf-legend">
         <span><i class="swatch ipc" aria-hidden="true"></i>IPC</span>
         <span><i class="swatch dcache" aria-hidden="true"></i>D-Cache Hit</span>
+        <span><i class="swatch stall" aria-hidden="true"></i>Cache Stall</span>
       </div>
+      <div id="perfKpis" class="perf-kpis" aria-label="Performance KPI summary"></div>
 
       <h3>Virtual Console</h3>
       <div class="row wrap compact">

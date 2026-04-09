@@ -1,0 +1,70 @@
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+ram              0x0000000000000000 0x0000000001000000 xrw
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+                0x0000000000001000                __global_pointer$ = (ORIGIN (ram) + 0x1000)
+                0x0000000000000000                . = ORIGIN (ram)
+
+.text           0x0000000000000000      0x555
+ *(.init)
+ *(.text .text.*)
+ .text          0x0000000000000000       0x88 /tmp/ccNxHEoO.o
+                0x0000000000000000                _start
+                0x0000000000000068                memset
+ .text          0x0000000000000088      0x21c /tmp/ccHDHcn3.o
+ .text.startup  0x00000000000002a4      0x24c /tmp/ccHDHcn3.o
+                0x00000000000002a4                main
+ *(.rodata .rodata.*)
+ .rodata.str1.4
+                0x00000000000004f0       0x65 /tmp/ccHDHcn3.o
+ *(.fini)
+                0x0000000000000555                _etext = .
+
+.srodata        0x0000000000000558        0x4
+ .srodata       0x0000000000000558        0x4 /tmp/ccHDHcn3.o
+                0x0000000000000558                UART
+
+.rela.dyn       0x000000000000055c        0x0
+ .rela.text     0x000000000000055c        0x0 /tmp/ccNxHEoO.o
+
+.data           0x000000000000055c        0x4
+                0x000000000000055c                _sdata = .
+ *(.data .data.*)
+ .data          0x000000000000055c        0x0 /tmp/ccNxHEoO.o
+ .data          0x000000000000055c        0x0 /tmp/ccHDHcn3.o
+ *(.sdata .sdata.*)
+ .sdata         0x000000000000055c        0x4 /tmp/ccHDHcn3.o
+                0x0000000000000560                _edata = .
+                0x000000000000055c                __data_load = _sdata
+
+.bss            0x0000000000000560     0x4000
+                0x0000000000000560                _sbss = .
+ *(.bss .bss.*)
+ .bss           0x0000000000000560        0x0 /tmp/ccNxHEoO.o
+ .bss           0x0000000000000560     0x4000 /tmp/ccHDHcn3.o
+ *(COMMON)
+                0x0000000000004560                _ebss = .
+                0x0000000001000000                _stack_top = (ORIGIN (ram) + LENGTH (ram))
+LOAD /tmp/ccNxHEoO.o
+LOAD /tmp/ccHDHcn3.o
+OUTPUT(benchmarks/quicksort_stress.elf elf32-littleriscv)
+
+.sbss           0x0000000000004560        0x4
+ .sbss          0x0000000000004560        0x4 /tmp/ccHDHcn3.o
+                0x0000000000004560                tohost
+
+.riscv.attributes
+                0x0000000000000000       0x1c
+ .riscv.attributes
+                0x0000000000000000       0x1a /tmp/ccNxHEoO.o
+ .riscv.attributes
+                0x000000000000001a       0x1c /tmp/ccHDHcn3.o
+
+.comment        0x0000000000000000        0xf
+ .comment       0x0000000000000000        0xf /tmp/ccHDHcn3.o
+                                         0x10 (size before relaxing)

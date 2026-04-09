@@ -1,0 +1,79 @@
+[  1%] Building CXX object CMakeFiles/isa.dir/src/isa/decoder.cpp.o
+[  3%] Linking CXX static library libisa.a
+[  3%] Built target isa
+[  5%] Building CXX object CMakeFiles/test_decoder.dir/tests/test_decoder.cpp.o
+[  8%] Building CXX object CMakeFiles/cpu.dir/src/cpu/registers.cpp.o
+[  8%] Building CXX object CMakeFiles/cpu.dir/src/cpu/alu.cpp.o
+[ 10%] Building CXX object CMakeFiles/cpu.dir/src/cpu/single_cycle.cpp.o
+[ 12%] Building CXX object CMakeFiles/cpu.dir/src/cpu/pipeline.cpp.o
+[ 17%] Building CXX object CMakeFiles/cpu.dir/src/cpu/csr.cpp.o
+[ 17%] Building CXX object CMakeFiles/cpu.dir/src/mem/memory.cpp.o
+[ 17%] Building CXX object CMakeFiles/cpu.dir/src/cache/simple_cache.cpp.o
+[ 21%] Building CXX object CMakeFiles/cpu.dir/src/periph/timer.cpp.o
+[ 21%] Building CXX object CMakeFiles/cpu.dir/src/periph/timer_mmio.cpp.o
+[ 24%] Building CXX object CMakeFiles/cpu.dir/src/periph/uart_mmio.cpp.o
+[ 24%] Building CXX object CMakeFiles/cpu.dir/src/periph/tohost_mmio.cpp.o
+[ 26%] Building CXX object CMakeFiles/cpu.dir/src/mmu/mmu.cpp.o
+[ 29%] Building CXX object CMakeFiles/cpu.dir/src/elf/elf_loader.cpp.o
+[ 29%] Building CXX object CMakeFiles/cpu.dir/src/trace/trace.cpp.o
+[ 31%] Linking CXX executable test_decoder
+[ 31%] Built target test_decoder
+[ 33%] Linking CXX static library libcpu.a
+[ 33%] Built target cpu
+[ 35%] Building CXX object CMakeFiles/mycpu.dir/src/main.cpp.o
+[ 36%] Building CXX object CMakeFiles/test_singlecycle.dir/tests/test_singlecycle.cpp.o
+[ 38%] Building CXX object CMakeFiles/test_pipeline.dir/tests/test_pipeline.cpp.o
+[ 40%] Building CXX object CMakeFiles/test_pipeline_uart_rx.dir/tests/test_pipeline_uart_rx.cpp.o
+[ 42%] Building CXX object CMakeFiles/test_pipeline_forward.dir/tests/test_pipeline_forward.cpp.o
+[ 43%] Building CXX object CMakeFiles/test_timer_interrupt.dir/tests/test_timer_interrupt.cpp.o
+[ 45%] Building CXX object CMakeFiles/test_uart_mmio.dir/tests/test_uart_mmio.cpp.o
+[ 47%] Building CXX object CMakeFiles/test_elf_loader.dir/tests/test_elf_loader.cpp.o
+[ 49%] Building CXX object CMakeFiles/test_integration_uart_timer.dir/tests/test_integration_uart_timer.cpp.o
+[ 54%] Building CXX object CMakeFiles/test_cache_basic.dir/tests/test_cache_basic.cpp.o
+[ 54%] Building CXX object CMakeFiles/test_load_store_byte_half.dir/tests/test_load_store_byte_half.cpp.o
+[ 54%] Building CXX object CMakeFiles/test_cache_wb.dir/tests/test_cache_wb.cpp.o
+[ 56%] Building CXX object CMakeFiles/test_pipeline_load_store_instr.dir/tests/test_pipeline_load_store_instr.cpp.o
+[ 57%] Building CXX object CMakeFiles/test_isa_immediates.dir/tests/test_isa_immediates.cpp.o
+[ 59%] Building CXX object CMakeFiles/test_csrs.dir/tests/test_csrs.cpp.o
+[ 61%] Building CXX object CMakeFiles/test_privilege_security.dir/tests/test_privilege_security.cpp.o
+[ 63%] Building CXX object CMakeFiles/test_mmu_basic.dir/tests/test_mmu_basic.cpp.o
+[ 64%] Building CXX object CMakeFiles/test_sfence_vma.dir/tests/test_sfence_vma.cpp.o
+[ 66%] Building CXX object CMakeFiles/test_trap_delegation.dir/tests/test_trap_delegation.cpp.o
+[ 68%] Linking CXX executable test_singlecycle
+[ 70%] Linking CXX executable test_uart_mmio
+[ 71%] Linking CXX executable test_elf_loader
+[ 75%] Linking CXX executable test_cache_wb
+[ 75%] Linking CXX executable test_load_store_byte_half
+[ 77%] Linking CXX executable test_cache_basic
+[ 78%] Linking CXX executable test_pipeline_uart_rx
+[ 80%] Linking CXX executable test_timer_interrupt
+[ 82%] Built target test_singlecycle
+[ 82%] Linking CXX executable test_pipeline_forward
+[ 84%] Linking CXX executable test_integration_uart_timer
+[ 85%] Linking CXX executable test_pipeline
+[ 85%] Built target test_uart_mmio
+[ 87%] Linking CXX executable test_csrs
+[ 89%] Linking CXX executable test_isa_immediates
+[ 91%] Linking CXX executable test_mmu_basic
+[ 92%] Linking CXX executable test_pipeline_load_store_instr
+[ 94%] Linking CXX executable test_trap_delegation
+[ 96%] Linking CXX executable test_privilege_security
+[ 98%] Linking CXX executable test_sfence_vma
+[ 98%] Built target test_elf_loader
+[ 98%] Built target test_cache_wb
+[ 98%] Built target test_cache_basic
+[ 98%] Built target test_load_store_byte_half
+[ 98%] Built target test_timer_interrupt
+[ 98%] Built target test_pipeline_uart_rx
+[ 98%] Built target test_pipeline_forward
+[ 98%] Built target test_integration_uart_timer
+[ 98%] Built target test_pipeline
+[ 98%] Built target test_csrs
+[ 98%] Built target test_isa_immediates
+[ 98%] Built target test_mmu_basic
+[ 98%] Built target test_trap_delegation
+[ 98%] Built target test_pipeline_load_store_instr
+[ 98%] Built target test_privilege_security
+[ 98%] Built target test_sfence_vma
+[100%] Linking CXX executable mycpu
+[100%] Built target mycpu

@@ -1,0 +1,15 @@
+[trace-server] no child command provided, serving static/SSE only
+[trace-server] listening http://127.0.0.1:8080 (web_root=/home/ys/camycpu/web)
+[trace-server] shutting down...
+0 -
+[http] "GET / HTTP/1.1" 200 -
+[http] "GET / HTTP/1.1" 200 -
+[http] "GET /style.css HTTP/1.1" 200 -
+[http] "GET /app.js HTTP/1.1" 200 -
+[http] "GET /events HTTP/1.1" 200 -
+[http] "GET /events HTTP/1.1" 200 -
+[http] "GET /events HTTP/1.1" 200 -
+[http] "GET /health HTTP/1.1" 200 -
+[http] "GET /health HTTP/1.1" 200 -
+[http] "GET /health HTTP/1.1" 200 -
+[trace-server] shutting down...

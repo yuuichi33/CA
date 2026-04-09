@@ -13,9 +13,10 @@
   - `./build/mycpu --quiet --load benchmarks/matmul.elf --cache-penalty 10`
 - 测量（无 cache，惩罚=10）：
   - `./build/mycpu --quiet --load benchmarks/matmul.elf --no-cache --cache-penalty 10`
-- 本次原始日志：
-  - `tmp/matmul_cache_run.log`
-  - `tmp/matmul_nocache_run.log`
+- 本次原始日志（本轮重新执行）：
+  - `tmp/full_run_20260409/matmul_cache_p10.log`
+  - `tmp/full_run_20260409/matmul_nocache_p10.log`
+  - `tmp/full_run_20260409/matmul_recheck_rcs.csv`
 
 原始输出（完整运行）：
 

@@ -1,0 +1,107 @@
+myCPU simulator starting
+Memory: map_device base=0x10000000 size=0x20
+Memory: map_device base=0x10001000 size=0x20
+load_elf: detected tohost at 0x80001000, mapping ToHostMMIO
+Memory: map_device base=0x80001000 size=0x8
+loaded ELF: riscv-tests/isa/rv32ui-p-ma_data entry PC=2147483648
+runtime: no args/env
+FETCH pc=0x80000004 instr=CSRRS
+FETCH pc=0x80000054 instr=ADDI
+FETCH pc=0x80000058 instr=ADDI
+FETCH pc=0x8000005c instr=ADDI
+FETCH pc=0x80000060 instr=ADDI
+FETCH pc=0x80000064 instr=ADDI
+FETCH pc=0x80000068 instr=ADDI
+FETCH pc=0x8000006c instr=ADDI
+FETCH pc=0x80000070 instr=ADDI
+FETCH pc=0x80000074 instr=ADDI
+FETCH pc=0x80000078 instr=ADDI
+FETCH pc=0x8000007c instr=ADDI
+FETCH pc=0x80000084 instr=ADDI
+FETCH pc=0x80000088 instr=ADDI
+FETCH pc=0x8000008c instr=ADDI
+FETCH pc=0x80000090 instr=ADDI
+FETCH pc=0x80000094 instr=ADDI
+FETCH pc=0x80000098 instr=ADDI
+FETCH pc=0x8000009c instr=ADDI
+FETCH pc=0x800000a0 instr=ADDI
+FETCH pc=0x800000a4 instr=ADDI
+FETCH pc=0x800000a8 instr=ADDI
+FETCH pc=0x800000ac instr=ADDI
+FETCH pc=0x800000b0 instr=ADDI
+FETCH pc=0x800000b4 instr=ADDI
+FETCH pc=0x800000b8 instr=ADDI
+FETCH pc=0x800000bc instr=ADDI
+FETCH pc=0x800000c4 instr=ADDI
+FETCH pc=0x800000c8 instr=ADDI
+FETCH pc=0x800000cc instr=CSRRS
+FETCH pc=0x800000d0 instr=BNE
+FETCH pc=0x800000d4 instr=AUIPC
+FETCH pc=0x800000d8 instr=ADDI
+FETCH pc=0x800000dc instr=CSRRW
+FETCH pc=0x800000e0 instr=CSRRWI
+FETCH pc=0x800000e4 instr=AUIPC
+FETCH pc=0x800000e8 instr=ADDI
+FETCH pc=0x800000ec instr=CSRRW
+FETCH pc=0x800000f0 instr=CSRRWI
+FETCH pc=0x800000f4 instr=AUIPC
+MMU: TLB flushed
+Pipeline: executing MRET at pc=0x80000188
+CSR: mret_restore before mpp=3 mpie=0 mstatus_mie=0
+CSR: mret_restore after privilege=3 mstatus_mie=0
+Pipeline: MRET returned to pc=0x8000018c privilege=3
+EX: LH pc=0x8000019c rs1_val=0x80002000 rs2_val=0x0 imm=0x1 -> alu_res=0x80002001
+EX: LHU pc=0x800001ac rs1_val=0x80002000 rs2_val=0x0 imm=0x1 -> alu_res=0x80002001
+EX: LW pc=0x800001c0 rs1_val=0x80002000 rs2_val=0x0 imm=0x1 -> alu_res=0x80002001
+EX: LW pc=0x800001d4 rs1_val=0x80002000 rs2_val=0x0 imm=0x2 -> alu_res=0x80002002
+EX: LW pc=0x800001e8 rs1_val=0x80002000 rs2_val=0x5 imm=0x3 -> alu_res=0x80002003
+EX: LH pc=0x800001fc rs1_val=0x80002000 rs2_val=0x0 imm=0x1f -> alu_res=0x8000201f
+EX: LHU pc=0x80000210 rs1_val=0x80002000 rs2_val=0x0 imm=0x1f -> alu_res=0x8000201f
+EX: LW pc=0x80000224 rs1_val=0x80002000 rs2_val=0x0 imm=0x1d -> alu_res=0x8000201d
+EX: LW pc=0x80000238 rs1_val=0x80002000 rs2_val=0x0 imm=0x1e -> alu_res=0x8000201e
+EX: LW pc=0x8000024c rs1_val=0x80002000 rs2_val=0x0 imm=0x1f -> alu_res=0x8000201f
+EX: LH pc=0x80000260 rs1_val=0x80002000 rs2_val=0x0 imm=0x3f -> alu_res=0x8000203f
+EX: LHU pc=0x80000274 rs1_val=0x80002000 rs2_val=0x0 imm=0x3f -> alu_res=0x8000203f
+EX: LW pc=0x80000288 rs1_val=0x80002000 rs2_val=0x0 imm=0x3d -> alu_res=0x8000203d
+EX: LW pc=0x8000029c rs1_val=0x80002000 rs2_val=0x0 imm=0x3e -> alu_res=0x8000203e
+EX: LW pc=0x800002b0 rs1_val=0x80002000 rs2_val=0x0 imm=0x3f -> alu_res=0x8000203f
+EX: SH pc=0x800002c4 rs1_val=0x80002000 rs2_val=0xffff8180 imm=0x1 -> alu_res=0x80002001
+EX: LH pc=0x800002c8 rs1_val=0x80002000 rs2_val=0x0 imm=0x1 -> alu_res=0x80002001
+EX: SH pc=0x800002dc rs1_val=0x80002000 rs2_val=0x8382 imm=0x1 -> alu_res=0x80002001
+EX: LHU pc=0x800002e0 rs1_val=0x80002000 rs2_val=0x0 imm=0x1 -> alu_res=0x80002001
+EX: SW pc=0x800002f4 rs1_val=0x80002000 rs2_val=0x87868584 imm=0x1 -> alu_res=0x80002001
+EX: LW pc=0x800002f8 rs1_val=0x80002000 rs2_val=0x0 imm=0x1 -> alu_res=0x80002001
+EX: SW pc=0x8000030c rs1_val=0x80002000 rs2_val=0x8b8a8988 imm=0x2 -> alu_res=0x80002002
+EX: LW pc=0x80000310 rs1_val=0x80002000 rs2_val=0x0 imm=0x2 -> alu_res=0x80002002
+EX: SW pc=0x80000324 rs1_val=0x80002000 rs2_val=0x8f8e8d8c imm=0x3 -> alu_res=0x80002003
+EX: LW pc=0x80000328 rs1_val=0x80002000 rs2_val=0x32 imm=0x3 -> alu_res=0x80002003
+EX: SH pc=0x8000033c rs1_val=0x80002000 rs2_val=0xffffd5d4 imm=0x1f -> alu_res=0x8000201f
+EX: LH pc=0x80000340 rs1_val=0x80002000 rs2_val=0x0 imm=0x1f -> alu_res=0x8000201f
+EX: SH pc=0x80000354 rs1_val=0x80002000 rs2_val=0xd7d6 imm=0x1f -> alu_res=0x8000201f
+EX: LHU pc=0x80000358 rs1_val=0x80002000 rs2_val=0x0 imm=0x1f -> alu_res=0x8000201f
+EX: SW pc=0x8000036c rs1_val=0x80002000 rs2_val=0xdbdad9d8 imm=0x1d -> alu_res=0x8000201d
+EX: LW pc=0x80000370 rs1_val=0x80002000 rs2_val=0x0 imm=0x1d -> alu_res=0x8000201d
+EX: SW pc=0x80000384 rs1_val=0x80002000 rs2_val=0xdfdedddc imm=0x1e -> alu_res=0x8000201e
+EX: LW pc=0x80000388 rs1_val=0x80002000 rs2_val=0x0 imm=0x1e -> alu_res=0x8000201e
+EX: SW pc=0x8000039c rs1_val=0x80002000 rs2_val=0xe3e2e1e0 imm=0x1f -> alu_res=0x8000201f
+EX: LW pc=0x800003a0 rs1_val=0x80002000 rs2_val=0x0 imm=0x1f -> alu_res=0x8000201f
+EX: SH pc=0x800003b4 rs1_val=0x80002000 rs2_val=0x3534 imm=0x3f -> alu_res=0x8000203f
+EX: LH pc=0x800003b8 rs1_val=0x80002000 rs2_val=0x0 imm=0x3f -> alu_res=0x8000203f
+EX: SH pc=0x800003cc rs1_val=0x80002000 rs2_val=0x3736 imm=0x3f -> alu_res=0x8000203f
+EX: LHU pc=0x800003d0 rs1_val=0x80002000 rs2_val=0x0 imm=0x3f -> alu_res=0x8000203f
+EX: SW pc=0x800003e4 rs1_val=0x80002000 rs2_val=0x3b3a3938 imm=0x3d -> alu_res=0x8000203d
+EX: LW pc=0x800003e8 rs1_val=0x80002000 rs2_val=0x0 imm=0x3d -> alu_res=0x8000203d
+EX: SW pc=0x800003fc rs1_val=0x80002000 rs2_val=0x3f3e3d3c imm=0x3e -> alu_res=0x8000203e
+EX: LW pc=0x80000400 rs1_val=0x80002000 rs2_val=0x0 imm=0x3e -> alu_res=0x8000203e
+EX: SW pc=0x80000414 rs1_val=0x80002000 rs2_val=0x43424140 imm=0x3f -> alu_res=0x8000203f
+EX: LW pc=0x80000418 rs1_val=0x80002000 rs2_val=0x0 imm=0x3f -> alu_res=0x8000203f
+EX: SH pc=0x80000430 rs1_val=0x80002000 rs2_val=0x9998 imm=0x1 -> alu_res=0x80002001
+EX: LB pc=0x80000434 rs1_val=0x80002000 rs2_val=0x0 imm=0x1 -> alu_res=0x80002001
+EX: SH pc=0x8000044c rs1_val=0x80002000 rs2_val=0x9b9a imm=0x1 -> alu_res=0x80002001
+EX: LB pc=0x80000450 rs1_val=0x80002000 rs2_val=0x0 imm=0x2 -> alu_res=0x80002002
+CSR: machine trap entry prev=3 mepc=0x800006f0 mpie=0 mpp=3 mtvec=0x80000004 cause=0xb tval=0x0
+EX: SW pc=0x80000040 rs1_val=0x8000103c rs2_val=0xb9 imm=0xffffffc4 -> alu_res=0x80001000
+Memory: MMIO store32 addr=0x80001000 off=0x0 val=0xb9
+TOHOST: 0xb9
+Cycles: 564, Instrs: 293, I-Cache Hit: 92.03%, D-Cache Hit: 50.00%
+myCPU simulator exiting

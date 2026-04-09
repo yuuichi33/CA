@@ -33,6 +33,12 @@ int main() {
     return 1;
   }
 
+  if (c.evictions() == 0 || c.writebacks() == 0) {
+    std::cerr << "cache write-back stats unexpected: evictions=" << c.evictions()
+              << " writebacks=" << c.writebacks() << "\n";
+    return 2;
+  }
+
   std::cout << "cache write-back test ok\n";
   return 0;
 }

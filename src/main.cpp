@@ -32,6 +32,11 @@ int main(int argc, char** argv) {
   bool quiet = false;
   bool no_cache = false;
   int cache_penalty = 10;
+  size_t cache_size = 16 * 1024;
+  size_t cache_line_size = 64;
+  unsigned cache_assoc = 4;
+  bool cache_write_back = true;
+  bool cache_write_allocate = true;
   std::string trace_json_target;
   std::vector<uint32_t> breakpoints;
   std::vector<std::string> cli_argv;
@@ -63,6 +68,20 @@ int main(int argc, char** argv) {
       no_cache = true;
     } else if (a == "--cache-penalty") {
       if (i + 1 < argc) { cache_penalty = static_cast<int>(parse_u64(argv[++i])); } else { std::cerr << "--cache-penalty requires a number\n"; return 1; }
+    } else if (a == "--cache-size") {
+      if (i + 1 < argc) { cache_size = static_cast<size_t>(parse_u64(argv[++i])); } else { std::cerr << "--cache-size requires a number\n"; return 1; }
+    } else if (a == "--cache-line-size") {
+      if (i + 1 < argc) { cache_line_size = static_cast<size_t>(parse_u64(argv[++i])); } else { std::cerr << "--cache-line-size requires a number\n"; return 1; }
+    } else if (a == "--cache-assoc") {
+      if (i + 1 < argc) { cache_assoc = static_cast<unsigned>(parse_u64(argv[++i])); } else { std::cerr << "--cache-assoc requires a number\n"; return 1; }
+    } else if (a == "--cache-write-back") {
+      cache_write_back = true;
+    } else if (a == "--cache-write-through") {
+      cache_write_back = false;
+    } else if (a == "--cache-write-allocate") {
+      cache_write_allocate = true;
+    } else if (a == "--cache-no-write-allocate" || a == "--cache-write-around") {
+      cache_write_allocate = false;
     } else if (a == "--step" || a == "-s") {
       step_mode = true;
     } else if (a == "--pause-on-start") {
@@ -92,9 +111,22 @@ int main(int argc, char** argv) {
     } else if (a == "--max-cycles") {
       if (i + 1 < argc) { run_cycles = parse_u64(argv[++i]); run_cycles_set = true; } else { std::cerr << "--max-cycles requires a number\n"; return 1; }
     } else if (a == "--help" || a == "-h") {
-      std::cout << "Usage: mycpu [--uart-stdin|-u] [--load <file>|-l <file>] [--mtvec <addr>|-m <addr>] [--timer-interval <n>] [--timer-mtimecmp <v>] [--timer-enable] [--uart-ier <v>] [--cycles|-c <n>] [--max-cycles <n>] [--trace-json <stdout|file>] [--breakpoint|-b <addr>] [--pause-on-start] [--verbose|-v] [--step|-s] [--arg|-a <arg>] [--env|-e <key=value>]" << std::endl;
+      std::cout << "Usage: mycpu [--uart-stdin|-u] [--load <file>|-l <file>] [--mtvec <addr>|-m <addr>] [--timer-interval <n>] [--timer-mtimecmp <v>] [--timer-enable] [--uart-ier <v>] [--cycles|-c <n>] [--max-cycles <n>] [--trace-json <stdout|file>] [--breakpoint|-b <addr>] [--pause-on-start] [--verbose|-v] [--step|-s] [--arg|-a <arg>] [--env|-e <key=value>] [--no-cache] [--cache-penalty <n>] [--cache-size <bytes>] [--cache-line-size <bytes>] [--cache-assoc <n>] [--cache-write-back|--cache-write-through] [--cache-write-allocate|--cache-no-write-allocate]" << std::endl;
       return 0;
     }
+  }
+
+  if (cache_size == 0) {
+    std::cerr << "--cache-size must be > 0\n";
+    return 1;
+  }
+  if (cache_line_size == 0 || (cache_line_size & 3u) != 0u) {
+    std::cerr << "--cache-line-size must be a non-zero multiple of 4\n";
+    return 1;
+  }
+  if (cache_assoc == 0) {
+    std::cerr << "--cache-assoc must be > 0\n";
+    return 1;
   }
 
   const bool trace_to_stdout = (trace_json_target == "stdout" || trace_json_target == "-");
@@ -116,14 +148,23 @@ int main(int argc, char** argv) {
   // configure cache according to CLI flags
   {
     CacheConfig cfg;
-    cfg.cache_size = 16 * 1024;
-    cfg.line_size = 64;
-    cfg.associativity = 4;
-    cfg.write_back = true;
-    cfg.write_allocate = true;
+    cfg.cache_size = cache_size;
+    cfg.line_size = cache_line_size;
+    cfg.associativity = cache_assoc;
+    cfg.write_back = cache_write_back;
+    cfg.write_allocate = cache_write_allocate;
     cfg.miss_latency = cache_penalty;
     p.configure_cache(!no_cache, cfg);
     p.set_uncached_latency(no_cache ? cache_penalty : 0);
+    if (!quiet) {
+      ui_out << "cache: " << (!no_cache ? "on" : "off")
+             << " size=" << cfg.cache_size
+             << " line=" << cfg.line_size
+             << " assoc=" << cfg.associativity
+             << " wb=" << (cfg.write_back ? 1 : 0)
+             << " wa=" << (cfg.write_allocate ? 1 : 0)
+             << " miss_latency=" << cfg.miss_latency << "\n";
+    }
   }
 
   if (!trace_json_target.empty()) {
@@ -306,14 +347,32 @@ int main(int argc, char** argv) {
   double i_acc = static_cast<double>(p.icache_accesses());
   double i_hits = static_cast<double>(p.icache_hits());
   double i_pct = (i_acc > 0.0) ? (i_hits / i_acc * 100.0) : 0.0;
+  uint64_t i_miss = p.icache_misses();
+  uint64_t i_evict = p.icache_evictions();
+  uint64_t i_wb = p.icache_writebacks();
   double d_acc = static_cast<double>(p.dcache_accesses());
   double d_hits = static_cast<double>(p.dcache_hits());
   double d_pct = (d_acc > 0.0) ? (d_hits / d_acc * 100.0) : 0.0;
+  uint64_t d_miss = p.dcache_misses();
+  uint64_t d_evict = p.dcache_evictions();
+  uint64_t d_wb = p.dcache_writebacks();
+  uint64_t stall_all = p.stall_cycles();
+  uint64_t stall_cache = p.cache_stall_cycles();
+  uint64_t stall_hazard = p.hazard_stall_cycles();
 
   // final single-line performance summary (always printed)
     ui_out << "Cycles: " << cycles << ", Instrs: " << instrs
       << ", I-Cache Hit: " << std::fixed << std::setprecision(2) << i_pct << "%"
       << ", D-Cache Hit: " << std::fixed << std::setprecision(2) << d_pct << "%"
+      << ", I-Miss: " << i_miss
+      << ", D-Miss: " << d_miss
+      << ", I-Evict: " << i_evict
+      << ", D-Evict: " << d_evict
+      << ", I-WB: " << i_wb
+      << ", D-WB: " << d_wb
+      << ", Stall: " << stall_all
+      << ", CacheStall: " << stall_cache
+      << ", HazardStall: " << stall_hazard
       << std::endl;
 
     if (!quiet) ui_out << "myCPU simulator exiting" << std::endl;

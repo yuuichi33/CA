@@ -17,13 +17,13 @@ SECTIONS
     _etext = .;
   } > ram
 
-  __data_load = LOADADDR(.data);
-  .data : AT(__data_load) {
+  .data : {
     _sdata = .;
     *(.data .data.*)
     *(.sdata .sdata.*)
     _edata = .;
   } > ram
+  __data_load = _sdata;
 
   .bss (NOLOAD) : {
     _sbss = .;

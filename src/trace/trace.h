@@ -65,8 +65,17 @@ struct CycleRecord {
 
   uint64_t icache_accesses = 0;
   uint64_t icache_hits = 0;
+  uint64_t icache_misses = 0;
+  uint64_t icache_evictions = 0;
+  uint64_t icache_writebacks = 0;
   uint64_t dcache_accesses = 0;
   uint64_t dcache_hits = 0;
+  uint64_t dcache_misses = 0;
+  uint64_t dcache_evictions = 0;
+  uint64_t dcache_writebacks = 0;
+  uint64_t stall_cycles = 0;
+  uint64_t cache_stall_cycles = 0;
+  uint64_t hazard_stall_cycles = 0;
 };
 
 class TraceWriter {

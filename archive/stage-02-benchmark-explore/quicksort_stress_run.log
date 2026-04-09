@@ -1,0 +1,8 @@
+myCPU simulator starting
+cache: on size=16384 line=64 assoc=4 wb=1 wa=1 miss_latency=10
+loaded ELF: benchmarks/quicksort_stress.elf entry PC=0
+runtime: no args/env
+quicksort_stress start
+quicksort_stress failed
+Cycles: 1273666, Instrs: 1111717, I-Cache Hit: 100.00%, D-Cache Hit: 99.82%, I-Miss: 16, D-Miss: 398, I-Evict: 0, D-Evict: 142, I-WB: 0, D-WB: 130, Stall: 1416, CacheStall: 1368, HazardStall: 48
+myCPU simulator exiting

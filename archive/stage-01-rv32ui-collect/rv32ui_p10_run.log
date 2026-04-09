@@ -1,0 +1,50 @@
+Running 42 tests from riscv-tests/isa/rv32ui-p-*
+
+Running rv32ui-p-add                             ... [PASS] rv32ui-p-add
+Running rv32ui-p-addi                            ... [PASS] rv32ui-p-addi
+Running rv32ui-p-and                             ... [PASS] rv32ui-p-and
+Running rv32ui-p-andi                            ... [PASS] rv32ui-p-andi
+Running rv32ui-p-auipc                           ... [PASS] rv32ui-p-auipc
+Running rv32ui-p-beq                             ... [PASS] rv32ui-p-beq
+Running rv32ui-p-bge                             ... [PASS] rv32ui-p-bge
+Running rv32ui-p-bgeu                            ... [PASS] rv32ui-p-bgeu
+Running rv32ui-p-blt                             ... [PASS] rv32ui-p-blt
+Running rv32ui-p-bltu                            ... [PASS] rv32ui-p-bltu
+Running rv32ui-p-bne                             ... [PASS] rv32ui-p-bne
+Running rv32ui-p-fence_i                         ... [PASS] rv32ui-p-fence_i
+Running rv32ui-p-jal                             ... [PASS] rv32ui-p-jal
+Running rv32ui-p-jalr                            ... [PASS] rv32ui-p-jalr
+Running rv32ui-p-lb                              ... [PASS] rv32ui-p-lb
+Running rv32ui-p-lbu                             ... [PASS] rv32ui-p-lbu
+Running rv32ui-p-ld_st                           ... [PASS] rv32ui-p-ld_st
+Running rv32ui-p-lh                              ... [PASS] rv32ui-p-lh
+Running rv32ui-p-lhu                             ... [PASS] rv32ui-p-lhu
+Running rv32ui-p-lui                             ... [PASS] rv32ui-p-lui
+Running rv32ui-p-lw                              ... [PASS] rv32ui-p-lw
+Running rv32ui-p-ma_data                         ... [PASS] rv32ui-p-ma_data
+Running rv32ui-p-or                              ... [PASS] rv32ui-p-or
+Running rv32ui-p-ori                             ... [PASS] rv32ui-p-ori
+Running rv32ui-p-sb                              ... [PASS] rv32ui-p-sb
+Running rv32ui-p-sh                              ... [PASS] rv32ui-p-sh
+Running rv32ui-p-simple                          ... [PASS] rv32ui-p-simple
+Running rv32ui-p-sll                             ... [PASS] rv32ui-p-sll
+Running rv32ui-p-slli                            ... [PASS] rv32ui-p-slli
+Running rv32ui-p-slt                             ... [PASS] rv32ui-p-slt
+Running rv32ui-p-slti                            ... [PASS] rv32ui-p-slti
+Running rv32ui-p-sltiu                           ... [PASS] rv32ui-p-sltiu
+Running rv32ui-p-sltu                            ... [PASS] rv32ui-p-sltu
+Running rv32ui-p-sra                             ... [PASS] rv32ui-p-sra
+Running rv32ui-p-srai                            ... [PASS] rv32ui-p-srai
+Running rv32ui-p-srl                             ... [PASS] rv32ui-p-srl
+Running rv32ui-p-srli                            ... [PASS] rv32ui-p-srli
+Running rv32ui-p-st_ld                           ... [PASS] rv32ui-p-st_ld
+Running rv32ui-p-sub                             ... [PASS] rv32ui-p-sub
+Running rv32ui-p-sw                              ... [PASS] rv32ui-p-sw
+Running rv32ui-p-xor                             ... [PASS] rv32ui-p-xor
+Running rv32ui-p-xori                            ... [PASS] rv32ui-p-xori
+
+================ Test Summary ================
+Total:    42
+Passed:   42
+Failed:   0
+Pass rate: 100%

@@ -1,0 +1,62 @@
+myCPU simulator starting
+Memory: map_device base=0x10000000 size=0x20
+Memory: map_device base=0x10001000 size=0x20
+load_elf: detected tohost at 0x80001000, mapping ToHostMMIO
+Memory: map_device base=0x80001000 size=0x8
+loaded ELF: riscv-tests/isa/rv32ui-p-fence_i entry PC=2147483648
+runtime: no args/env
+FETCH pc=0x80000004 instr=CSRRS
+FETCH pc=0x80000054 instr=ADDI
+FETCH pc=0x80000058 instr=ADDI
+FETCH pc=0x8000005c instr=ADDI
+FETCH pc=0x80000060 instr=ADDI
+FETCH pc=0x80000064 instr=ADDI
+FETCH pc=0x80000068 instr=ADDI
+FETCH pc=0x8000006c instr=ADDI
+FETCH pc=0x80000070 instr=ADDI
+FETCH pc=0x80000074 instr=ADDI
+FETCH pc=0x80000078 instr=ADDI
+FETCH pc=0x8000007c instr=ADDI
+FETCH pc=0x80000084 instr=ADDI
+FETCH pc=0x80000088 instr=ADDI
+FETCH pc=0x8000008c instr=ADDI
+FETCH pc=0x80000090 instr=ADDI
+FETCH pc=0x80000094 instr=ADDI
+FETCH pc=0x80000098 instr=ADDI
+FETCH pc=0x8000009c instr=ADDI
+FETCH pc=0x800000a0 instr=ADDI
+FETCH pc=0x800000a4 instr=ADDI
+FETCH pc=0x800000a8 instr=ADDI
+FETCH pc=0x800000ac instr=ADDI
+FETCH pc=0x800000b0 instr=ADDI
+FETCH pc=0x800000b4 instr=ADDI
+FETCH pc=0x800000b8 instr=ADDI
+FETCH pc=0x800000bc instr=ADDI
+FETCH pc=0x800000c4 instr=ADDI
+FETCH pc=0x800000c8 instr=ADDI
+FETCH pc=0x800000cc instr=CSRRS
+FETCH pc=0x800000d0 instr=BNE
+FETCH pc=0x800000d4 instr=AUIPC
+FETCH pc=0x800000d8 instr=ADDI
+FETCH pc=0x800000dc instr=CSRRW
+FETCH pc=0x800000e0 instr=CSRRWI
+FETCH pc=0x800000e4 instr=AUIPC
+FETCH pc=0x800000e8 instr=ADDI
+FETCH pc=0x800000ec instr=CSRRW
+FETCH pc=0x800000f0 instr=CSRRWI
+FETCH pc=0x800000f4 instr=AUIPC
+MMU: TLB flushed
+Pipeline: executing MRET at pc=0x80000188
+CSR: mret_restore before mpp=3 mpie=0 mstatus_mie=0
+CSR: mret_restore after privilege=3 mstatus_mie=0
+Pipeline: MRET returned to pc=0x8000018c privilege=3
+EX: LH pc=0x80000194 rs1_val=0x80002190 rs2_val=0x0 imm=0xfffffe70 -> alu_res=0x80002000
+EX: LH pc=0x8000019c rs1_val=0x80002198 rs2_val=0x8693 imm=0xfffffe6a -> alu_res=0x80002002
+EX: SH pc=0x800001c4 rs1_val=0x800021c0 rs2_val=0x8693 imm=0xfffffe44 -> alu_res=0x80002004
+EX: SH pc=0x800001cc rs1_val=0x800021c8 rs2_val=0x14d6 imm=0xfffffe3e -> alu_res=0x80002006
+CSR: machine trap entry prev=3 mepc=0x80000278 mpie=0 mpp=3 mtvec=0x80000004 cause=0xb tval=0x0
+EX: SW pc=0x80000040 rs1_val=0x8000103c rs2_val=0x5 imm=0xffffffc4 -> alu_res=0x80001000
+Memory: MMIO store32 addr=0x80001000 off=0x0 val=0x5
+TOHOST: 0x5
+Cycles: 295, Instrs: 109, I-Cache Hit: 89.68%, D-Cache Hit: 25.00%
+myCPU simulator exiting

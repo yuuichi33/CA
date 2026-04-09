@@ -39,8 +39,14 @@ private:
   // statistics
   uint64_t accesses_ = 0;
   uint64_t hits_ = 0;
+  uint64_t misses_ = 0;
+  uint64_t evictions_ = 0;
+  uint64_t writebacks_ = 0;
 public:
   uint64_t accesses() const { return accesses_; }
   uint64_t hits() const { return hits_; }
-  void reset_stats() { accesses_ = hits_ = 0; }
+  uint64_t misses() const { return misses_; }
+  uint64_t evictions() const { return evictions_; }
+  uint64_t writebacks() const { return writebacks_; }
+  void reset_stats() { accesses_ = hits_ = misses_ = evictions_ = writebacks_ = 0; }
 };

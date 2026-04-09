@@ -55,6 +55,7 @@ std::pair<uint32_t, int> SimpleCache::load32(uint32_t addr) {
     }
   }
 
+  misses_++;
   // miss: choose victim (invalid preferred, else LRU)
   size_t victim = 0;
   bool found_invalid = false;
@@ -71,8 +72,10 @@ std::pair<uint32_t, int> SimpleCache::load32(uint32_t addr) {
     // TODO: handle write-back eviction when implemented
   }
   Line &line = set[victim];
+  if (line.valid) evictions_++;
   // if evicting a dirty line (write-back), write it back to memory first
   if (write_back_ && line.valid && line.dirty) {
+    writebacks_++;
     uint32_t victim_block = line.tag * static_cast<uint32_t>(num_sets_) + static_cast<uint32_t>(set_idx);
     uint32_t victim_base = block_base_addr(victim_block, line_size_);
     for (size_t off = 0; off < line_size_; off += 4) {
@@ -116,6 +119,7 @@ int SimpleCache::store32(uint32_t addr, uint32_t value) {
         return 0;
       }
     }
+    misses_++;
     // miss
     if (!write_allocate_) {
       // write-around: write directly to memory
@@ -137,7 +141,9 @@ int SimpleCache::store32(uint32_t addr, uint32_t value) {
       victim = min_i;
     }
     Line &line = set[victim];
+    if (line.valid) evictions_++;
     if (line.valid && line.dirty) {
+      writebacks_++;
       uint32_t victim_block = line.tag * static_cast<uint32_t>(num_sets_) + static_cast<uint32_t>(set_idx);
       uint32_t victim_base = block_base_addr(victim_block, line_size_);
       for (size_t off = 0; off < line_size_; off += 4) {
@@ -170,14 +176,18 @@ int SimpleCache::store32(uint32_t addr, uint32_t value) {
     uint32_t tag = block / num_sets_;
     auto &set = sets_[set_idx];
     size_t offset = addr % line_size_;
+    bool hit = false;
     for (size_t way = 0; way < associativity_; ++way) {
       Line &line = set[way];
       if (line.valid && line.tag == tag) {
+        hit = true;
         hits_++;
         std::memcpy(&line.data[offset], &value, 4);
         line.lru = ++access_counter_;
+        break;
       }
     }
+    if (!hit) misses_++;
     return 0;
   }
 }
@@ -199,6 +209,7 @@ std::pair<uint32_t, int> SimpleCache::load8(uint32_t addr) {
     }
   }
 
+  misses_++;
   // miss: fetch block
   size_t victim = 0;
   bool found_invalid = false;
@@ -215,8 +226,10 @@ std::pair<uint32_t, int> SimpleCache::load8(uint32_t addr) {
   }
 
   Line &line = set[victim];
+  if (line.valid) evictions_++;
   // evict if dirty
   if (write_back_ && line.valid && line.dirty) {
+    writebacks_++;
     uint32_t victim_block = line.tag * static_cast<uint32_t>(num_sets_) + static_cast<uint32_t>(set_idx);
     uint32_t victim_base = block_base_addr(victim_block, line_size_);
     for (size_t off = 0; off < line_size_; off += 4) {
@@ -258,6 +271,7 @@ std::pair<uint32_t, int> SimpleCache::load16(uint32_t addr) {
     }
   }
 
+  misses_++;
   // if crosses cache line, fall back to memory reads (may bypass cache)
   uint32_t aligned = addr & ~3u;
   uint32_t w = mem_->load32(aligned);
@@ -294,6 +308,7 @@ int SimpleCache::store8(uint32_t addr, uint8_t value) {
         return 0;
       }
     }
+    misses_++;
     // miss
     if (!write_allocate_) {
       // write-around: write directly to memory
@@ -315,7 +330,9 @@ int SimpleCache::store8(uint32_t addr, uint8_t value) {
       victim = min_i;
     }
     Line &line = set[victim];
+    if (line.valid) evictions_++;
     if (line.valid && line.dirty) {
+      writebacks_++;
       uint32_t victim_block = line.tag * static_cast<uint32_t>(num_sets_) + static_cast<uint32_t>(set_idx);
       uint32_t victim_base = block_base_addr(victim_block, line_size_);
       for (size_t off = 0; off < line_size_; off += 4) {
@@ -346,14 +363,18 @@ int SimpleCache::store8(uint32_t addr, uint8_t value) {
     uint32_t tag = block / num_sets_;
     auto &set = sets_[set_idx];
     size_t offset = addr % line_size_;
+    bool hit = false;
     for (size_t way = 0; way < associativity_; ++way) {
       Line &line = set[way];
       if (line.valid && line.tag == tag) {
+        hit = true;
+        hits_++;
         line.data[offset] = value;
         line.lru = ++access_counter_;
         break;
       }
     }
+    if (!hit) misses_++;
     return 0;
   }
 }
@@ -378,6 +399,7 @@ int SimpleCache::store16(uint32_t addr, uint16_t value) {
         return 0;
       }
     }
+    misses_++;
     // miss
     if (!write_allocate_) {
       mem_->store16(addr, value);
@@ -398,7 +420,9 @@ int SimpleCache::store16(uint32_t addr, uint16_t value) {
       victim = min_i;
     }
     Line &line = set[victim];
+    if (line.valid) evictions_++;
     if (line.valid && line.dirty) {
+      writebacks_++;
       uint32_t victim_block = line.tag * static_cast<uint32_t>(num_sets_) + static_cast<uint32_t>(set_idx);
       uint32_t victim_base = block_base_addr(victim_block, line_size_);
       for (size_t off = 0; off < line_size_; off += 4) {
@@ -429,9 +453,12 @@ int SimpleCache::store16(uint32_t addr, uint16_t value) {
     uint32_t tag = block / num_sets_;
     auto &set = sets_[set_idx];
     size_t offset = addr % line_size_;
+    bool hit = false;
     for (size_t way = 0; way < associativity_; ++way) {
       Line &line = set[way];
       if (line.valid && line.tag == tag) {
+        hit = true;
+        hits_++;
         if (offset + 1 < line_size_) {
           std::memcpy(&line.data[offset], &value, 2);
         }
@@ -439,6 +466,7 @@ int SimpleCache::store16(uint32_t addr, uint16_t value) {
         break;
       }
     }
+    if (!hit) misses_++;
     return 0;
   }
 }
@@ -449,6 +477,7 @@ void SimpleCache::flush_all() {
     for (size_t way = 0; way < associativity_; ++way) {
       Line &line = set[way];
       if (write_back_ && line.valid && line.dirty) {
+        writebacks_++;
         uint32_t victim_block = line.tag * static_cast<uint32_t>(num_sets_) + static_cast<uint32_t>(set_idx);
         uint32_t victim_base = block_base_addr(victim_block, line_size_);
         for (size_t off = 0; off < line_size_; off += 4) {

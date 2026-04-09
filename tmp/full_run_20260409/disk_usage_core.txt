@@ -1,0 +1,3 @@
+6.4M	build
+24K	tmp
+220K	docs

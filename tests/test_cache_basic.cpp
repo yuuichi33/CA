@@ -17,10 +17,17 @@ int main() {
 
   auto r8 = c.load8(0);
   if (r8.first != 0x44u) { std::cerr << "cache load8 unexpected: " << std::hex << r8.first << "\n"; return 1; }
+  auto r8_hit = c.load8(0);
+  if (r8_hit.first != 0x44u) { std::cerr << "cache second load8 unexpected: " << std::hex << r8_hit.first << "\n"; return 1; }
+
+  if (c.misses() == 0 || c.hits() == 0) {
+    std::cerr << "cache stats not updated as expected: hits=" << c.hits() << " misses=" << c.misses() << "\n";
+    return 2;
+  }
 
   // store32 should update backing memory (write-through default)
   c.store32(0, 0xAABBCCDDu);
-  if (m.load32(0) != 0xAABBCCDDu) { std::cerr << "cache store32 did not update mem: " << std::hex << m.load32(0) << "\n"; return 2; }
+  if (m.load32(0) != 0xAABBCCDDu) { std::cerr << "cache store32 did not update mem: " << std::hex << m.load32(0) << "\n"; return 3; }
 
   std::cout << "cache basic tests ok\n";
   return 0;

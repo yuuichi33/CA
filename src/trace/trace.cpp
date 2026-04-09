@@ -93,8 +93,17 @@ void TraceWriter::WriteCycle(const CycleRecord& record) {
       << ",\"metrics\":{"
       << "\"icache_accesses\":" << record.icache_accesses
       << ",\"icache_hits\":" << record.icache_hits
+      << ",\"icache_misses\":" << record.icache_misses
+      << ",\"icache_evictions\":" << record.icache_evictions
+      << ",\"icache_writebacks\":" << record.icache_writebacks
       << ",\"dcache_accesses\":" << record.dcache_accesses
       << ",\"dcache_hits\":" << record.dcache_hits
+      << ",\"dcache_misses\":" << record.dcache_misses
+      << ",\"dcache_evictions\":" << record.dcache_evictions
+      << ",\"dcache_writebacks\":" << record.dcache_writebacks
+      << ",\"stall_cycles\":" << record.stall_cycles
+      << ",\"cache_stall_cycles\":" << record.cache_stall_cycles
+      << ",\"hazard_stall_cycles\":" << record.hazard_stall_cycles
       << "},\"stages\":{";
 
   AppendStage(oss, "if", record.if_stage);

@@ -46,6 +46,7 @@ const dom = {
   memWriteList: document.getElementById('memWriteList'),
   regsGrid: document.getElementById('regsGrid'),
   virtualConsole: document.getElementById('virtualConsole'),
+  perfKpis: document.getElementById('perfKpis'),
   log: document.getElementById('log'),
   perfSvg: d3.select('#perfSvg'),
   pipelineSvg: d3.select('#pipelineSvg'),
@@ -82,6 +83,11 @@ function formatHex(value, width = 8) {
 
 function formatPct(ratio) {
   return `${(ratio * 100).toFixed(2)}%`;
+}
+
+function formatCount(value) {
+  if (!Number.isFinite(value)) return '-';
+  return Math.round(value).toLocaleString('zh-CN');
 }
 
 function clamp(value, min, max) {
@@ -676,6 +682,7 @@ function renderPerformance(frame) {
       .attr('font-family', 'IBM Plex Mono, monospace')
       .attr('font-size', 11)
       .text('等待足够的周期数据...');
+    dom.perfKpis.innerHTML = '<div class="perf-kpi placeholder">等待性能窗口数据...</div>';
     return;
   }
 
@@ -693,11 +700,29 @@ function renderPerformance(frame) {
     const ipc = clamp((retired - prevRetired) / deltaCycle, 0, 4);
 
     const metrics = f.metrics || {};
+    const prevMetrics = prev && prev.metrics ? prev.metrics : metrics;
+
     const dAcc = typeof metrics.dcache_accesses === 'number' ? metrics.dcache_accesses : 0;
     const dHits = typeof metrics.dcache_hits === 'number' ? metrics.dcache_hits : 0;
     const dRate = dAcc > 0 ? clamp(dHits / dAcc, 0, 1) : 0;
 
-    return { cycle, ipc, dRate };
+    const dAccPrev = typeof prevMetrics.dcache_accesses === 'number' ? prevMetrics.dcache_accesses : dAcc;
+    const dHitsPrev = typeof prevMetrics.dcache_hits === 'number' ? prevMetrics.dcache_hits : dHits;
+    const dMiss = typeof metrics.dcache_misses === 'number' ? metrics.dcache_misses : Math.max(0, dAcc - dHits);
+    const dMissPrev = typeof prevMetrics.dcache_misses === 'number'
+      ? prevMetrics.dcache_misses
+      : Math.max(0, dAccPrev - dHitsPrev);
+
+    const dAccDelta = Math.max(0, dAcc - dAccPrev);
+    const dMissDelta = Math.max(0, dMiss - dMissPrev);
+    const dMissRate = dAccDelta > 0 ? clamp(dMissDelta / dAccDelta, 0, 1) : 0;
+
+    const cacheStall = typeof metrics.cache_stall_cycles === 'number' ? metrics.cache_stall_cycles : 0;
+    const cacheStallPrev = typeof prevMetrics.cache_stall_cycles === 'number' ? prevMetrics.cache_stall_cycles : cacheStall;
+    const cacheStallDelta = Math.max(0, cacheStall - cacheStallPrev);
+    const cacheStallRate = deltaCycle > 0 ? clamp(cacheStallDelta / deltaCycle, 0, 1) : 0;
+
+    return { cycle, ipc, dRate, dMissRate, cacheStallRate };
   });
 
   const margin = { top: 14, right: 40, bottom: 30, left: 38 };
@@ -746,6 +771,11 @@ function renderPerformance(frame) {
     .y((d) => yRate(d.dRate))
     .curve(d3.curveMonotoneX);
 
+  const stallLine = d3.line()
+    .x((d) => x(d.cycle))
+    .y((d) => yRate(d.cacheStallRate))
+    .curve(d3.curveMonotoneX);
+
   svg.append('path')
     .datum(points)
     .attr('fill', 'none')
@@ -760,6 +790,14 @@ function renderPerformance(frame) {
     .attr('stroke-width', 1.8)
     .attr('d', dcacheLine);
 
+  svg.append('path')
+    .datum(points)
+    .attr('fill', 'none')
+    .attr('stroke', '#4b7ca8')
+    .attr('stroke-width', 1.6)
+    .attr('stroke-dasharray', '4,3')
+    .attr('d', stallLine);
+
   const current = points[points.length - 1];
   svg.append('circle')
     .attr('cx', x(current.cycle))
@@ -773,13 +811,54 @@ function renderPerformance(frame) {
     .attr('r', 3)
     .attr('fill', '#cf6b34');
 
+  svg.append('circle')
+    .attr('cx', x(current.cycle))
+    .attr('cy', yRate(current.cacheStallRate))
+    .attr('r', 3)
+    .attr('fill', '#4b7ca8');
+
   svg.append('text')
     .attr('x', margin.left)
     .attr('y', height - 8)
     .attr('fill', '#60675f')
     .attr('font-family', 'IBM Plex Mono, monospace')
     .attr('font-size', 10)
-    .text(`IPC ${current.ipc.toFixed(2)} · D-hit ${formatPct(current.dRate)}`);
+    .text(`IPC ${current.ipc.toFixed(2)} · D-hit ${formatPct(current.dRate)} · D-miss ${formatPct(current.dMissRate)} · C-stall ${formatPct(current.cacheStallRate)}`);
+
+  const metricsAt = (m, key, fallback = 0) => {
+    const v = m && typeof m[key] === 'number' ? m[key] : fallback;
+    return Number.isFinite(v) ? v : fallback;
+  };
+
+  const firstMetrics = frames[0].metrics || {};
+  const lastMetrics = frames[frames.length - 1].metrics || {};
+
+  const iAcc0 = metricsAt(firstMetrics, 'icache_accesses');
+  const iAcc1 = metricsAt(lastMetrics, 'icache_accesses');
+  const iHit0 = metricsAt(firstMetrics, 'icache_hits');
+  const iHit1 = metricsAt(lastMetrics, 'icache_hits');
+  const iMiss0 = typeof firstMetrics.icache_misses === 'number' ? firstMetrics.icache_misses : Math.max(0, iAcc0 - iHit0);
+  const iMiss1 = typeof lastMetrics.icache_misses === 'number' ? lastMetrics.icache_misses : Math.max(0, iAcc1 - iHit1);
+
+  const dAcc0 = metricsAt(firstMetrics, 'dcache_accesses');
+  const dAcc1 = metricsAt(lastMetrics, 'dcache_accesses');
+  const dHit0 = metricsAt(firstMetrics, 'dcache_hits');
+  const dHit1 = metricsAt(lastMetrics, 'dcache_hits');
+  const dMiss0 = typeof firstMetrics.dcache_misses === 'number' ? firstMetrics.dcache_misses : Math.max(0, dAcc0 - dHit0);
+  const dMiss1 = typeof lastMetrics.dcache_misses === 'number' ? lastMetrics.dcache_misses : Math.max(0, dAcc1 - dHit1);
+
+  const kpis = [
+    { label: 'I-Miss Δ', value: formatCount(Math.max(0, iMiss1 - iMiss0)) },
+    { label: 'D-Miss Δ', value: formatCount(Math.max(0, dMiss1 - dMiss0)) },
+    { label: 'D-Evict Δ', value: formatCount(Math.max(0, metricsAt(lastMetrics, 'dcache_evictions') - metricsAt(firstMetrics, 'dcache_evictions'))) },
+    { label: 'D-WB Δ', value: formatCount(Math.max(0, metricsAt(lastMetrics, 'dcache_writebacks') - metricsAt(firstMetrics, 'dcache_writebacks'))) },
+    { label: 'Cache Stall Δ', value: formatCount(Math.max(0, metricsAt(lastMetrics, 'cache_stall_cycles') - metricsAt(firstMetrics, 'cache_stall_cycles'))) },
+    { label: 'Hazard Stall Δ', value: formatCount(Math.max(0, metricsAt(lastMetrics, 'hazard_stall_cycles') - metricsAt(firstMetrics, 'hazard_stall_cycles'))) }
+  ];
+
+  dom.perfKpis.innerHTML = kpis
+    .map((item) => `<div class="perf-kpi"><span>${item.label}</span><strong>${item.value}</strong></div>`)
+    .join('');
 }
 
 function renderVirtualConsole() {
@@ -1087,6 +1166,8 @@ function boot() {
   dom.memIncludeMmioCheck.checked = state.includeMmioStores;
   dom.memFollowLastWriteCheck.checked = state.followLatestStore;
   setConnected(false);
+  // Auto-connect on page load so users see data without extra clicks.
+  connectSSE();
   renderAll();
   requestAnimationFrame(animationLoop);
 }

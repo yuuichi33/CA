@@ -1,0 +1,10 @@
+108M	build
+4.2M	riscv-tests
+204K	src
+136K	tmp
+92K	tests
+64K	web
+52K	benchmarks
+44K	docs
+28K	tools
+16K	README.md

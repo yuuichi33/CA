@@ -1,0 +1,44 @@
+Internal ctest changing into directory: /home/ys/camycpu/build
+Test project /home/ys/camycpu/build
+      Start  1: decoder_test
+ 1/19 Test  #1: decoder_test .....................   Passed    0.01 sec
+      Start  2: singlecycle_test
+ 2/19 Test  #2: singlecycle_test .................   Passed    0.01 sec
+      Start  3: pipeline_test
+ 3/19 Test  #3: pipeline_test ....................   Passed    0.01 sec
+      Start  4: pipeline_uart_rx_test
+ 4/19 Test  #4: pipeline_uart_rx_test ............   Passed    0.01 sec
+      Start  5: pipeline_forward_test
+ 5/19 Test  #5: pipeline_forward_test ............   Passed    0.01 sec
+      Start  6: timer_interrupt_test
+ 6/19 Test  #6: timer_interrupt_test .............   Passed    0.01 sec
+      Start  7: uart_mmio_test
+ 7/19 Test  #7: uart_mmio_test ...................   Passed    0.01 sec
+      Start  8: elf_loader_test
+ 8/19 Test  #8: elf_loader_test ..................   Passed    0.03 sec
+      Start  9: integration_uart_timer_test
+ 9/19 Test  #9: integration_uart_timer_test ......   Passed    0.02 sec
+      Start 10: load_store_byte_half_test
+10/19 Test #10: load_store_byte_half_test ........   Passed    0.01 sec
+      Start 11: cache_basic_test
+11/19 Test #11: cache_basic_test .................   Passed    0.01 sec
+      Start 12: cache_writeback_test
+12/19 Test #12: cache_writeback_test .............   Passed    0.01 sec
+      Start 13: pipeline_load_store_instr_test
+13/19 Test #13: pipeline_load_store_instr_test ...   Passed    0.01 sec
+      Start 14: isa_immediates_test
+14/19 Test #14: isa_immediates_test ..............   Passed    0.01 sec
+      Start 15: csrs_test
+15/19 Test #15: csrs_test ........................   Passed    0.01 sec
+      Start 16: mmu_basic_test
+16/19 Test #16: mmu_basic_test ...................   Passed    0.01 sec
+      Start 17: privilege_security_test
+17/19 Test #17: privilege_security_test ..........   Passed    0.01 sec
+      Start 18: trap_delegation_test
+18/19 Test #18: trap_delegation_test .............   Passed    0.01 sec
+      Start 19: sfence_vma_test
+19/19 Test #19: sfence_vma_test ..................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 19
+
+Total Test time (real) =   0.23 sec

@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <functional>
+#include <algorithm>
 
 namespace cpu {
 
@@ -107,13 +108,17 @@ void Pipeline::reset() {
   exmem_ = EXMEMReg();
   memwb_ = MEMWBReg();
   regs_ = RegisterFile();
+  cycles_ = 0;
+  instrs_ = 0;
+  stall_cycles_ = 0;
+  cache_stall_cycles_ = 0;
+  hazard_stall_cycles_ = 0;
   stall_remaining_ = 0;
   stall_kind_ = StallKind::None;
   last_stall_ = false;
 }
 
 bool Pipeline::step() {
-  constexpr int kCacheMissStallCycles = 10;
   last_stall_ = false;
   // each call to step represents one cycle
   ++cycles_;
@@ -184,8 +189,17 @@ bool Pipeline::step() {
     rec.tohost = periph::tohost_exit_code.load();
     rec.icache_accesses = icache_ ? icache_->accesses() : 0;
     rec.icache_hits = icache_ ? icache_->hits() : 0;
+    rec.icache_misses = icache_ ? icache_->misses() : 0;
+    rec.icache_evictions = icache_ ? icache_->evictions() : 0;
+    rec.icache_writebacks = icache_ ? icache_->writebacks() : 0;
     rec.dcache_accesses = dcache_ ? dcache_->accesses() : 0;
     rec.dcache_hits = dcache_ ? dcache_->hits() : 0;
+    rec.dcache_misses = dcache_ ? dcache_->misses() : 0;
+    rec.dcache_evictions = dcache_ ? dcache_->evictions() : 0;
+    rec.dcache_writebacks = dcache_ ? dcache_->writebacks() : 0;
+    rec.stall_cycles = stall_cycles_;
+    rec.cache_stall_cycles = cache_stall_cycles_;
+    rec.hazard_stall_cycles = hazard_stall_cycles_;
     trace_writer_->WriteCycle(rec);
   });
 
@@ -193,6 +207,8 @@ bool Pipeline::step() {
   if (stall_remaining_ > 0) {
     --stall_remaining_;
     last_stall_ = true;
+    ++stall_cycles_;
+    ++cache_stall_cycles_;
     return true;
   }
 
@@ -203,6 +219,8 @@ bool Pipeline::step() {
     ifid_.valid = true;
     stall_kind_ = StallKind::None;
     last_stall_ = true;
+    ++stall_cycles_;
+    ++cache_stall_cycles_;
     return true;
   }
   if (stall_kind_ == StallKind::MemLoad) {
@@ -210,6 +228,8 @@ bool Pipeline::step() {
     memwb_ = pending_memwb_;
     stall_kind_ = StallKind::None;
     last_stall_ = true;
+    ++stall_cycles_;
+    ++cache_stall_cycles_;
     return true;
   }
 
@@ -296,7 +316,7 @@ bool Pipeline::step() {
           memwb_.mem_data = res.first;
           push_mem_access("MEM", "LW", prev_exmem.alu_result, phys, 4, memwb_.mem_data, is_mmio, true, true);
         } else {
-          stall_remaining_ = kCacheMissStallCycles;
+          stall_remaining_ = std::max(0, res.second);
           stall_kind_ = StallKind::MemLoad;
           pending_memwb_ = memwb_;
           pending_mem_value_ = res.first;
@@ -304,6 +324,8 @@ bool Pipeline::step() {
           // Keep younger stages frozen, but clear current EX/MEM to avoid replaying this load.
           exmem_.valid = false;
           last_stall_ = true;
+          ++stall_cycles_;
+          ++cache_stall_cycles_;
           return true;
         }
       } else {
@@ -340,7 +362,7 @@ bool Pipeline::step() {
           }
           push_mem_access("MEM", mname, prev_exmem.alu_result, phys, 1, memwb_.mem_data, false, true, true);
         } else {
-          stall_remaining_ = kCacheMissStallCycles;
+          stall_remaining_ = std::max(0, res.second);
           stall_kind_ = StallKind::MemLoad;
           pending_memwb_ = memwb_;
           uint32_t byte = res.first & 0xffu;
@@ -354,6 +376,8 @@ bool Pipeline::step() {
           // Keep younger stages frozen, but clear current EX/MEM to avoid replaying this load.
           exmem_.valid = false;
           last_stall_ = true;
+          ++stall_cycles_;
+          ++cache_stall_cycles_;
           return true;
         }
       } else {
@@ -396,7 +420,7 @@ bool Pipeline::step() {
           }
           push_mem_access("MEM", mname, prev_exmem.alu_result, phys, 2, memwb_.mem_data, is_mmio, true, true);
         } else {
-          stall_remaining_ = kCacheMissStallCycles;
+          stall_remaining_ = std::max(0, res.second);
           stall_kind_ = StallKind::MemLoad;
           pending_memwb_ = memwb_;
           uint32_t half = res.first & 0xffffu;
@@ -410,6 +434,8 @@ bool Pipeline::step() {
           // Keep younger stages frozen, but clear current EX/MEM to avoid replaying this load.
           exmem_.valid = false;
           last_stall_ = true;
+          ++stall_cycles_;
+          ++cache_stall_cycles_;
           return true;
         }
       } else {
@@ -574,9 +600,10 @@ bool Pipeline::step() {
       memwb_.valid = false;
       return false;
     }
-    // operand fetch with forwarding: prioritize EX/MEM, then MEM/WB
-    uint32_t a = prev_idex.rs1_val;
-    uint32_t b = prev_idex.rs2_val;
+    // Re-read operands at EX time so long cache stalls cannot leave ID/EX rs values stale.
+    // Forwarding below still overrides with newer producer results when needed.
+    uint32_t a = regs_.read(prev_idex.inst.rs1);
+    uint32_t b = regs_.read(prev_idex.inst.rs2);
 
     
 
@@ -673,7 +700,7 @@ bool Pipeline::step() {
       }
       uint32_t vaddr = a; // rs1_val
       uint32_t asid = b;  // rs2_val
-      if (mmu_) mmu_->sfence_vma(vaddr, asid);
+      sfence_vma(vaddr, asid);
     }
     else if (name == "FENCE.I") {
       // Make prior stores globally visible and force refetch of subsequent instructions.
@@ -741,6 +768,8 @@ bool Pipeline::step() {
     idex_.inst = nop;
     idex_.valid = true;
     last_stall_ = true;
+    ++stall_cycles_;
+    ++hazard_stall_cycles_;
     // do not fetch, keep ifid_ unchanged
   } else {
     // move IF/ID -> ID/EX and read regs (note: WB already happened earlier this cycle)
@@ -789,8 +818,8 @@ bool Pipeline::step() {
           push_mem_access("IF", "FETCH", pc_, phys_pc, 4, word, false, true, true);
           pc_ += 4;
         } else {
-          // miss: stall pipeline for fixed 10 cycles then deliver
-          stall_remaining_ = kCacheMissStallCycles;
+          // miss: stall pipeline according to configured miss latency, then deliver
+          stall_remaining_ = std::max(0, res.second);
           stall_kind_ = StallKind::If;
           pending_if_word_ = res.first;
           pending_if_pc_ = pc_;
@@ -799,6 +828,8 @@ bool Pipeline::step() {
           pc_ += 4;
           ifid_.valid = false;
           last_stall_ = true;
+          ++stall_cycles_;
+          ++cache_stall_cycles_;
           return true;
         }
       } else {

@@ -1,0 +1,3 @@
+quicksort_stress start
+quicksort_stress ok checksum=0xe48d8e25
+Cycles: 1972097, Instrs: 1724935, I-Cache Hit: 100.00%, D-Cache Hit: 97.36%, I-Miss: 19, D-Miss: 8959, I-Evict: 0, D-Evict: 181, I-WB: 0, D-WB: 0, Stall: 1424, CacheStall: 1368, HazardStall: 56
