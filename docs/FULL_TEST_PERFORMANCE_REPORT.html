@@ -203,7 +203,7 @@
 <th style="text-align:right">speedup</th>
 <th style="text-align:right">cycles_nocache</th>
 <th style="text-align:right">cycles_p10</th>
-<th style="text-align:right">说明</th>
+<th>说明</th>
 </tr>
 </thead>
 <tbody>
@@ -212,35 +212,35 @@
 <td style="text-align:right">7.93x</td>
 <td style="text-align:right">15198</td>
 <td style="text-align:right">1916</td>
-<td style="text-align:right">纯内存加载/存储操作，无Cache时受制于内存墙，开启Cache后收益最大化</td>
+<td>纯内存加载/存储操作，无Cache时受制于内存墙，开启Cache后收益最大化</td>
 </tr>
 <tr>
 <td>rv32ui-p-sh</td>
 <td style="text-align:right">7.76x</td>
 <td style="text-align:right">7083</td>
 <td style="text-align:right">913</td>
-<td style="text-align:right">内存半字写入</td>
+<td>内存半字写入</td>
 </tr>
 <tr>
 <td>rv32ui-p-sb</td>
 <td style="text-align:right">7.76x</td>
 <td style="text-align:right">6500</td>
 <td style="text-align:right">838</td>
-<td style="text-align:right">内存字节写入</td>
+<td>内存字节写入</td>
 </tr>
 <tr>
 <td>rv32ui-p-sw</td>
 <td style="text-align:right">7.68x</td>
 <td style="text-align:right">7150</td>
 <td style="text-align:right">931</td>
-<td style="text-align:right">内存字写入</td>
+<td>内存字写入</td>
 </tr>
 <tr>
 <td>rv32ui-p-fence_i</td>
 <td style="text-align:right">7.45x</td>
 <td style="text-align:right">5045</td>
 <td style="text-align:right">677</td>
-<td style="text-align:right">指令屏障，重度依赖指令/数据同步，Cache显著降低了同步代价</td>
+<td>指令屏障，重度依赖指令/数据同步，Cache显著降低了同步代价</td>
 </tr>
 </tbody>
 </table>
@@ -252,7 +252,7 @@
 <th style="text-align:right">speedup</th>
 <th style="text-align:right">cycles_nocache</th>
 <th style="text-align:right">cycles_p10</th>
-<th style="text-align:right">说明</th>
+<th>说明</th>
 </tr>
 </thead>
 <tbody>
@@ -261,35 +261,35 @@
 <td style="text-align:right">4.53x</td>
 <td style="text-align:right">3864</td>
 <td style="text-align:right">853</td>
-<td style="text-align:right">相比字对齐访问，非对齐/半字读取的流水线开销占比略高，稀释了部分访存收益</td>
+<td>相比字对齐访问，非对齐/半字读取的流水线开销占比略高，稀释了部分访存收益</td>
 </tr>
 <tr>
 <td>rv32ui-p-lhu</td>
 <td style="text-align:right">4.60x</td>
 <td style="text-align:right">3963</td>
 <td style="text-align:right">862</td>
-<td style="text-align:right">相比字对齐访问，非对齐/半字读取的流水线开销占比略高，稀释了部分访存收益</td>
+<td>相比字对齐访问，非对齐/半字读取的流水线开销占比略高，稀释了部分访存收益</td>
 </tr>
 <tr>
 <td>rv32ui-p-jal</td>
 <td style="text-align:right">4.99x</td>
 <td style="text-align:right">1223</td>
 <td style="text-align:right">245</td>
-<td style="text-align:right">控制流跳转指令</td>
+<td>控制流跳转指令</td>
 </tr>
 <tr>
 <td>rv32ui-p-simple</td>
 <td style="text-align:right">5.03x</td>
 <td style="text-align:right">1036</td>
 <td style="text-align:right">206</td>
-<td style="text-align:right">基础 ALU 运算</td>
+<td>基础 ALU 运算</td>
 </tr>
 <tr>
 <td>rv32ui-p-auipc</td>
 <td style="text-align:right">5.06x</td>
 <td style="text-align:right">1256</td>
 <td style="text-align:right">248</td>
-<td style="text-align:right">PC相关立即数加载。本身不访问数据内存，仅享受 I-Cache 收益</td>
+<td>PC相关立即数加载。本身不访问数据内存，仅享受 I-Cache 收益</td>
 </tr>
 </tbody>
 </table>
@@ -305,8 +305,8 @@
 <th style="text-align:right">stall</th>
 <th style="text-align:right">cache_stall</th>
 <th style="text-align:right">hazard_stall</th>
-<th style="text-align:right">checksum</th>
-<th style="text-align:right">分析</th>
+<th>checksum</th>
+<th>分析</th>
 </tr>
 </thead>
 <tbody>
@@ -319,8 +319,8 @@
 <td style="text-align:right">45</td>
 <td style="text-align:right">24</td>
 <td style="text-align:right">21</td>
-<td style="text-align:right">-</td>
-<td style="text-align:right">-</td>
+<td>-</td>
+<td>-</td>
 </tr>
 <tr>
 <td>matmul_cache_p10</td>
@@ -331,8 +331,8 @@
 <td style="text-align:right">693</td>
 <td style="text-align:right">528</td>
 <td style="text-align:right">165</td>
-<td style="text-align:right">-</td>
-<td style="text-align:right">矩阵乘法具有极强的空间局部性。高达 99.5% 的 D-hit 表明 Cache 完美捕捉了数组的顺序预取，成功将几百万的周期压缩至二十多万</td>
+<td>-</td>
+<td>矩阵乘法具有极强的空间局部性。高达 99.5% 的 D-hit 表明 Cache 完美捕捉了数组的顺序预取，成功将几百万的周期压缩至二十多万</td>
 </tr>
 <tr>
 <td>matmul_nocache_p10</td>
@@ -343,8 +343,8 @@
 <td style="text-align:right">165</td>
 <td style="text-align:right">0</td>
 <td style="text-align:right">165</td>
-<td style="text-align:right">-</td>
-<td style="text-align:right">-</td>
+<td>-</td>
+<td>-</td>
 </tr>
 <tr>
 <td>quicksort_cache_default</td>
@@ -355,8 +355,8 @@
 <td style="text-align:right">2228</td>
 <td style="text-align:right">2172</td>
 <td style="text-align:right">56</td>
-<td style="text-align:right">e48d8e25</td>
-<td style="text-align:right">快排涉及大量内存元素的交换，属于重度读写混合场景。12倍以上的加速证实了当前 Cache 容量和替换策略非常适合该算法</td>
+<td>e48d8e25</td>
+<td>快排涉及大量内存元素的交换，属于重度读写混合场景。12倍以上的加速证实了当前 Cache 容量和替换策略非常适合该算法</td>
 </tr>
 <tr>
 <td>quicksort_nocache</td>
@@ -367,8 +367,8 @@
 <td style="text-align:right">56</td>
 <td style="text-align:right">0</td>
 <td style="text-align:right">56</td>
-<td style="text-align:right">e48d8e25</td>
-<td style="text-align:right">-</td>
+<td>e48d8e25</td>
+<td>-</td>
 </tr>
 <tr>
 <td>quicksort_writethrough_p1</td>
@@ -379,8 +379,8 @@
 <td style="text-align:right">1424</td>
 <td style="text-align:right">1368</td>
 <td style="text-align:right">56</td>
-<td style="text-align:right">e48d8e25</td>
-<td style="text-align:right">写透模式下，虽然 D-hit 略降至 97.36%，但总周期数几乎无变化。说明写缓冲(Write Buffer)有效隐藏了写穿透的代价</td>
+<td>e48d8e25</td>
+<td>写透模式下，虽然 D-hit 略降至 97.36%，但总周期数几乎无变化。说明写缓冲(Write Buffer)有效隐藏了写穿透的代价</td>
 </tr>
 </tbody>
 </table>
