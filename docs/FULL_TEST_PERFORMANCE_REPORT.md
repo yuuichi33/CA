@@ -1,16 +1,6 @@
 # FULL TEST PERFORMANCE REPORT
 
-生成日期：2026-04-09
-
-# 摘要
-
-本次全量测试验证了 Cache 模块功能。核心结论如下：
-
-- 绝对稳定：19项功能测试与所有复杂负载测试均 **100% 通过**，Cache及Write-through机制未引入任何逻辑错误。
-- 显著的性能跃升：
-    - 在基础指令集测试 (rv32ui) 中，Cache 带来了平均 **6.47倍** 的性能提升。
-    - 在真实场景负载 (Benchmarks) 中，加速效果呈指数级放大，matmul 和 quicksort 分别获得了 **11.34倍** 和 **12.71倍** 的加速比。
-- 关键瓶颈分析：数据表明，指令缓存命中率 (I-hit) 对整体性能的影响显著高于数据缓存 (D-hit)。在较高缺失惩罚 (penalty=10) 下，性能对 Cache 命中率极为敏感。
+生成日期：2026-04-13
 
 ## 0. 数据来源与口径定义
 
@@ -24,6 +14,8 @@
 | ctest 日志 | `tmp/full_run_20260409/ctest_full.log` | 正确性统计（19 项） |
 | benchmark 返回码 | `tmp/full_run_20260409/benchmark_rcs.csv` | 组合场景正确性检查 |
 | benchmark 性能日志 | `tmp/full_run_20260409/{hello,matmul,quicksort}_*.log` | cycles/instrs/hit/stall 提取 |
+
+补充说明：`docs/rv32ui_perf_full_p1.csv` 已于 2026-04-13 完成去重清洗，当前为 42 条唯一测试记录。
 
 ### 0.2 三组配置的含义
 
