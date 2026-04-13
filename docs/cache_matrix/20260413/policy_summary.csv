@@ -1,0 +1,6 @@
+policy,tests,pass,fail,avg_cycles,avg_i_hit_pct,avg_d_hit_pct,avg_stall,avg_cache_stall,avg_hazard_stall,avg_i_cold_miss,avg_i_conflict_miss,avg_i_capacity_miss,avg_d_cold_miss,avg_d_conflict_miss,avg_d_capacity_miss,avg_speedup_vs_nocache
+wb_wa,42,42,0,696.88,93.50,19.41,5.19,313.14,5.19,21.31,3.07,0.00,0.31,1.57,0.00,6.4705
+wb_nowa,42,42,0,698.88,93.50,18.34,5.19,315.14,5.19,21.31,3.07,0.00,0.31,1.83,0.00,6.4553
+wt_wa,42,42,0,698.88,93.50,18.34,5.19,315.14,5.19,21.31,3.07,0.00,0.31,1.83,0.00,6.4553
+wt_nowa,42,42,0,698.88,93.50,18.34,5.19,315.14,5.19,21.31,3.07,0.00,0.31,1.83,0.00,6.4553
+nocache,42,42,0,4633.83,0.00,0.00,5.19,0.00,5.19,0.00,0.00,0.00,0.00,0.00,0.00,1.0000

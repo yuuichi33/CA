@@ -15,6 +15,7 @@ SimpleCache::SimpleCache(mem::Memory* mem, const CacheConfig& cfg)
   num_sets_ = total_lines / associativity_;
   if (num_sets_ == 0) num_sets_ = 1;
   sets_.assign(num_sets_, std::vector<Line>(associativity_));
+  shadow_lines_.assign(total_lines, ShadowLine{});
   write_back_ = cfg.write_back;
   write_allocate_ = cfg.write_allocate;
 }
@@ -27,6 +28,7 @@ SimpleCache::SimpleCache(mem::Memory* mem, size_t cache_size, size_t line_size, 
   num_sets_ = total_lines / associativity_;
   if (num_sets_ == 0) num_sets_ = 1;
   sets_.assign(num_sets_, std::vector<Line>(associativity_));
+  shadow_lines_.assign(total_lines, ShadowLine{});
   write_back_ = false;
   write_allocate_ = false;
 }
@@ -35,9 +37,58 @@ static inline uint32_t block_base_addr(uint32_t block, size_t line_size) {
   return static_cast<uint32_t>(block * line_size);
 }
 
+bool SimpleCache::shadow_access(uint32_t block) {
+  for (auto &line : shadow_lines_) {
+    if (line.valid && line.block == block) {
+      line.lru = ++shadow_access_counter_;
+      return true;
+    }
+  }
+
+  size_t victim = 0;
+  bool found_invalid = false;
+  for (size_t i = 0; i < shadow_lines_.size(); ++i) {
+    if (!shadow_lines_[i].valid) {
+      victim = i;
+      found_invalid = true;
+      break;
+    }
+  }
+  if (!found_invalid && !shadow_lines_.empty()) {
+    uint32_t min_lru = shadow_lines_[0].lru;
+    size_t min_i = 0;
+    for (size_t i = 1; i < shadow_lines_.size(); ++i) {
+      if (shadow_lines_[i].lru < min_lru) {
+        min_lru = shadow_lines_[i].lru;
+        min_i = i;
+      }
+    }
+    victim = min_i;
+  }
+
+  if (!shadow_lines_.empty()) {
+    shadow_lines_[victim].valid = true;
+    shadow_lines_[victim].block = block;
+    shadow_lines_[victim].lru = ++shadow_access_counter_;
+  }
+  return false;
+}
+
+void SimpleCache::account_miss_class(uint32_t block, bool shadow_hit) {
+  bool first_touch = ever_seen_blocks_.insert(block).second;
+  if (first_touch) {
+    ++cold_misses_;
+  } else if (shadow_hit) {
+    ++conflict_misses_;
+  } else {
+    ++capacity_misses_;
+  }
+}
+
 std::pair<uint32_t, int> SimpleCache::load32(uint32_t addr) {
   accesses_++;
   uint32_t block = addr / line_size_;
+  bool shadow_hit = shadow_access(block);
   size_t set_idx = block % num_sets_;
   uint32_t tag = block / num_sets_;
   auto &set = sets_[set_idx];
@@ -56,6 +107,7 @@ std::pair<uint32_t, int> SimpleCache::load32(uint32_t addr) {
   }
 
   misses_++;
+  account_miss_class(block, shadow_hit);
   // miss: choose victim (invalid preferred, else LRU)
   size_t victim = 0;
   bool found_invalid = false;
@@ -102,9 +154,10 @@ std::pair<uint32_t, int> SimpleCache::load32(uint32_t addr) {
 
 int SimpleCache::store32(uint32_t addr, uint32_t value) {
   accesses_++;
+  uint32_t block = addr / line_size_;
+  bool shadow_hit = shadow_access(block);
   if (write_back_) {
     // write-back mode: update cache line and mark dirty on hit; allocate on miss depending on write_allocate_
-    uint32_t block = addr / line_size_;
     size_t set_idx = block % num_sets_;
     uint32_t tag = block / num_sets_;
     auto &set = sets_[set_idx];
@@ -120,6 +173,7 @@ int SimpleCache::store32(uint32_t addr, uint32_t value) {
       }
     }
     misses_++;
+    account_miss_class(block, shadow_hit);
     // miss
     if (!write_allocate_) {
       // write-around: write directly to memory
@@ -171,7 +225,6 @@ int SimpleCache::store32(uint32_t addr, uint32_t value) {
     // write-through: write to memory immediately, update cache line if present
     std::cerr << "SimpleCache: write-through store32 addr=0x" << std::hex << addr << " val=0x" << value << std::dec << "\n";
     mem_->store32(addr, value);
-    uint32_t block = addr / line_size_;
     size_t set_idx = block % num_sets_;
     uint32_t tag = block / num_sets_;
     auto &set = sets_[set_idx];
@@ -187,7 +240,10 @@ int SimpleCache::store32(uint32_t addr, uint32_t value) {
         break;
       }
     }
-    if (!hit) misses_++;
+    if (!hit) {
+      misses_++;
+      account_miss_class(block, shadow_hit);
+    }
     return 0;
   }
 }
@@ -195,6 +251,7 @@ int SimpleCache::store32(uint32_t addr, uint32_t value) {
 std::pair<uint32_t, int> SimpleCache::load8(uint32_t addr) {
   accesses_++;
   uint32_t block = addr / line_size_;
+  bool shadow_hit = shadow_access(block);
   size_t set_idx = block % num_sets_;
   uint32_t tag = block / num_sets_;
   auto &set = sets_[set_idx];
@@ -210,6 +267,7 @@ std::pair<uint32_t, int> SimpleCache::load8(uint32_t addr) {
   }
 
   misses_++;
+  account_miss_class(block, shadow_hit);
   // miss: fetch block
   size_t victim = 0;
   bool found_invalid = false;
@@ -255,6 +313,7 @@ std::pair<uint32_t, int> SimpleCache::load8(uint32_t addr) {
 std::pair<uint32_t, int> SimpleCache::load16(uint32_t addr) {
   accesses_++;
   uint32_t block = addr / line_size_;
+  bool shadow_hit = shadow_access(block);
   size_t set_idx = block % num_sets_;
   uint32_t tag = block / num_sets_;
   auto &set = sets_[set_idx];
@@ -272,6 +331,7 @@ std::pair<uint32_t, int> SimpleCache::load16(uint32_t addr) {
   }
 
   misses_++;
+  account_miss_class(block, shadow_hit);
   // if crosses cache line, fall back to memory reads (may bypass cache)
   uint32_t aligned = addr & ~3u;
   uint32_t w = mem_->load32(aligned);
@@ -291,8 +351,9 @@ std::pair<uint32_t, int> SimpleCache::load16(uint32_t addr) {
 
 int SimpleCache::store8(uint32_t addr, uint8_t value) {
   accesses_++;
+  uint32_t block = addr / line_size_;
+  bool shadow_hit = shadow_access(block);
   if (write_back_) {
-    uint32_t block = addr / line_size_;
     size_t set_idx = block % num_sets_;
     uint32_t tag = block / num_sets_;
     auto &set = sets_[set_idx];
@@ -309,6 +370,7 @@ int SimpleCache::store8(uint32_t addr, uint8_t value) {
       }
     }
     misses_++;
+    account_miss_class(block, shadow_hit);
     // miss
     if (!write_allocate_) {
       // write-around: write directly to memory
@@ -358,7 +420,6 @@ int SimpleCache::store8(uint32_t addr, uint8_t value) {
   } else {
     // write-through
     mem_->store8(addr, value);
-    uint32_t block = addr / line_size_;
     size_t set_idx = block % num_sets_;
     uint32_t tag = block / num_sets_;
     auto &set = sets_[set_idx];
@@ -374,15 +435,19 @@ int SimpleCache::store8(uint32_t addr, uint8_t value) {
         break;
       }
     }
-    if (!hit) misses_++;
+    if (!hit) {
+      misses_++;
+      account_miss_class(block, shadow_hit);
+    }
     return 0;
   }
 }
 
 int SimpleCache::store16(uint32_t addr, uint16_t value) {
   accesses_++;
+  uint32_t block = addr / line_size_;
+  bool shadow_hit = shadow_access(block);
   if (write_back_) {
-    uint32_t block = addr / line_size_;
     size_t set_idx = block % num_sets_;
     uint32_t tag = block / num_sets_;
     auto &set = sets_[set_idx];
@@ -400,6 +465,7 @@ int SimpleCache::store16(uint32_t addr, uint16_t value) {
       }
     }
     misses_++;
+    account_miss_class(block, shadow_hit);
     // miss
     if (!write_allocate_) {
       mem_->store16(addr, value);
@@ -448,7 +514,6 @@ int SimpleCache::store16(uint32_t addr, uint16_t value) {
     return 0;
   } else {
     mem_->store16(addr, value);
-    uint32_t block = addr / line_size_;
     size_t set_idx = block % num_sets_;
     uint32_t tag = block / num_sets_;
     auto &set = sets_[set_idx];
@@ -466,7 +531,10 @@ int SimpleCache::store16(uint32_t addr, uint16_t value) {
         break;
       }
     }
-    if (!hit) misses_++;
+    if (!hit) {
+      misses_++;
+      account_miss_class(block, shadow_hit);
+    }
     return 0;
   }
 }

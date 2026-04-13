@@ -1,4 +1,4 @@
-# Archive Manifest (2026-04-09)
+# Archive Manifest (updated 2026-04-13)
 
 ## Purpose
 Archive intermediate and stage outputs before final cleanup and full re-run.
@@ -35,6 +35,12 @@ This archive lives at repository root (`archive/`) and no longer keeps an extra 
   - Files moved to: docs-history/reports/ and docs-history/csv-legacy/
   - Purpose: keep `docs/` focused on current delivery artifacts
 
+- Docs history figures and summaries (2026-04-13 migration)
+  - Source path: docs/figures/full_run_20260409_*.png and docs/full_test_summary_20260409.csv
+  - Files moved to: docs-history/figures/ and docs-history/csv-legacy/
+  - Purpose: keep `docs/` reserved for current run-tag artifacts (20260413)
+
 ## Notes
 - This archive stores stage provenance only; final deliverables are kept in docs/ root and docs/figures/.
 - Reproducible command set is documented in README and FULL_TEST_PERFORMANCE_REPORT.
+- Current active matrix/gate artifacts stay in docs/cache_matrix/<run-tag>; archive holds superseded snapshots.

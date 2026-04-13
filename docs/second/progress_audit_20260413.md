@@ -88,10 +88,10 @@
 
 ### 3.2 Cache 性能关键数字
 
-- rv32ui p10 平均 speedup：6.47x。
+- rv32ui p10 平均 speedup：6.46x。
 - p10/p1 平均 cycle 比：1.54x。
-- D-hit 与 speedup 相关系数：0.530。
-- I-hit 与 speedup 相关系数：0.703。
+- D-hit 与 speedup 相关系数：0.475。
+- I-hit 与 speedup 相关系数：0.711。
 
 ### 3.3 Benchmark（cache on vs no-cache）
 
@@ -100,7 +100,22 @@
 | matmul | 277966 | 3151861 | 11.34x |
 | quicksort | 1972901 | 25074548 | 12.71x |
 
-### 3.4 可汇报结论
+### 3.4 Cache 矩阵回归与门禁（20260413）
+
+| 策略 | 通过率 | avg cycles | avg I-hit | avg D-hit | vs no-cache speedup |
+|---|---:|---:|---:|---:|---:|
+| wb_wa | 42/42 | 696.88 | 93.50% | 19.41% | 6.4705x |
+| wb_nowa | 42/42 | 698.88 | 93.50% | 18.34% | 6.4553x |
+| wt_wa | 42/42 | 698.88 | 93.50% | 18.34% | 6.4553x |
+| wt_nowa | 42/42 | 698.88 | 93.50% | 18.34% | 6.4553x |
+| nocache | 42/42 | 4633.83 | 0.00% | 0.00% | 1.0000x |
+
+- 门禁脚本输出：PASS（baseline=wb_wa，issues=0）。
+- miss 分解（p10/wt_nowa）：
+   - I-miss 占比：cold 87.4% / conflict 12.6% / capacity 0.0%
+   - D-miss 占比：cold 14.4% / conflict 85.6% / capacity 0.0%
+
+### 3.5 可汇报结论
 
 - Cache 在教学 workload 上带来稳定且显著的收益（6x-12x 量级）。
 - 当前架构中 I-cache 对整体性能更敏感（相关系数更高）。
@@ -110,14 +125,37 @@
 
 ### 4.1 Cache 主线优先项
 
-1. Cache 回归基线自动化
-   - 固化不同策略组合（WB/WT、WA/no-WA）的回归脚本。
-2. Cache 指标门禁
-   - 将 I-hit/D-hit/stall 拆分写入自动检查，避免性能回退。
-3. Cache 可解释性增强
-   - 增加 miss 类型分解（冷启动/冲突/容量）与可视化标签。
+1. Cache 回归基线自动化（已完成）
+   - 已新增 `tools/run_cache_matrix.sh`，可批量执行 WB/WT x WA/no-WA + no-cache 组合。
+   - 产物目录固定为 `docs/cache_matrix/<run-tag>/`，包含每策略原始 CSV 与矩阵汇总。
+2. Cache 指标门禁（已完成）
+   - 已新增 `tools/check_cache_gate.py`，读取 `policy_summary.csv` 输出 PASS/WARN/FAIL。
+   - 同步产出 `gate_checks.csv`、`gate_result.json`、`gate_report.md`，可直接接入 CI。
+3. Cache 可解释性增强（已完成）
+   - 已在 cache 核心实现 miss 分解：cold/conflict/capacity。
+   - 指标已打通到 Pipeline 统计、Trace JSON、`test_all.sh` CSV 与最终性能行。
+4. Cache 专项验证（已完成）
+   - 新增 `tests/test_cache_miss_types.cpp` 并接入 CTest，覆盖冲突/容量 miss 分类回归。
 
-### 4.2 体系结构增强项
+### 4.2 门禁执行链路（已落地）
+
+1. 本地阻断入口（已完成）
+   - 新增 `tools/run_cache_gate_local.sh`，串联 build、ctest、matrix、gate 全链路。
+   - 默认策略：PASS=0，WARN/FAIL 非零阻断。
+2. CI 就绪模板（已完成）
+   - 新增 `.github/workflows/cache-gate.yml`（当前手动触发）。
+   - 后续可直接打开 PR/push 触发实现自动阻断。
+
+### 4.3 文档治理与归档（已完成）
+
+1. 历史产物归档
+   - 已将 20260409 的 summary 与 figure 迁移到 `archive/docs-history/`。
+2. 索引同步
+   - 已更新 `docs/DOCS_CATALOG.md` 与 `archive/MANIFEST.md`，标注 current/historical。
+3. second 目录完善
+   - 新增 cache gate 使用说明、验收检测清单、可视化演示指南与检测报告。
+
+### 4.4 体系结构增强项
 
 1. 中断控制器抽象
    - 从 timer/uart 直连 CSR，演进到统一中断汇聚层。
@@ -126,7 +164,7 @@
 3. MMU 增强
    - 在基础 Sv32 上补充更多权限边界与页表场景测试。
 
-### 4.3 miniOS MVP（可选）
+### 4.5 miniOS MVP（可选）
 
 1. 启动与串口输出。
 2. trap 框架（ECALL + timer interrupt）。
@@ -134,26 +172,9 @@
 
 说明：当前硬件抽象已具备 miniOS 入口条件；直接跑 Linux 仍需要更多指令扩展与平台能力。
 
-## 5. 后续计划（Cache 主线）
+## 5. 环境适配说明（汇报可选）
 
-### 阶段A：Cache 数据与回归固化
-
-- 固化 cache 配置矩阵与一键复现实验脚本。
-- 将关键性能指标写入自动校验，防止无感回退。
-
-### 阶段B：Cache 可解释性增强
-
-- 增加 miss 原因分类统计。
-- 在可视化页中展示 cache 行为与流水线 stall 的对应关系。
-
-### 阶段C：系统能力扩展
-
-- 中断汇聚层 + trap 文档化。
-- miniOS MVP 运行演示。
-
-## 6. 环境适配说明（汇报可选）
-
-- 当前工程是 CMake + C++17 + Bash，Linux/WSL1 可运行。
+- 当前工程是 CMake + C++17 + Bash，Linux/WSL 可运行。
 - 建议：
   - 优先脚本化启动，减少端口与进程冲突。
   - 大规模性能测试使用 quiet 模式，降低终端 I/O 噪声。
@@ -161,4 +182,4 @@
 
 ## 7. 汇报时可直接使用的总结话术
 
-本项目已完成一台可独立运行的 RV32I 教学模拟器 myCPU。实现上覆盖 49 条有效指令，完成五级流水、I/D Cache、Sv32 基础 MMU、异常与中断、UART/Timer 外设。验证上通过 19 项 CTest 与 42 项 rv32ui 三配置全量测试。性能上，cache 在 rv32ui 提供 6.47x 平均加速，在 matmul 与 quicksort 分别达到 11.34x 和 12.71x。下一阶段将以 Cache 回归固化与可解释性增强为主线，并推进中断抽象与 miniOS MVP 演示，形成从 CPU 到 OS 的课程闭环。
+本项目已完成一台可独立运行的 RV32I 教学模拟器 myCPU。实现上覆盖 49 条有效指令，完成五级流水、I/D Cache、Sv32 基础 MMU、异常与中断、UART/Timer 外设。验证上通过 20 项 CTest 与 42 项 rv32ui 三配置全量测试。性能上，cache 在 rv32ui 提供 6.46x 平均加速，在 matmul 与 quicksort 分别达到 11.34x 和 12.71x。下一阶段将以 Cache 回归固化与可解释性增强为主线，并推进中断抽象与 miniOS MVP 演示，形成从 CPU 到 OS 的课程闭环。

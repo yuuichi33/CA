@@ -350,12 +350,18 @@ int main(int argc, char** argv) {
   uint64_t i_miss = p.icache_misses();
   uint64_t i_evict = p.icache_evictions();
   uint64_t i_wb = p.icache_writebacks();
+  uint64_t i_cold = p.icache_cold_misses();
+  uint64_t i_conflict = p.icache_conflict_misses();
+  uint64_t i_capacity = p.icache_capacity_misses();
   double d_acc = static_cast<double>(p.dcache_accesses());
   double d_hits = static_cast<double>(p.dcache_hits());
   double d_pct = (d_acc > 0.0) ? (d_hits / d_acc * 100.0) : 0.0;
   uint64_t d_miss = p.dcache_misses();
   uint64_t d_evict = p.dcache_evictions();
   uint64_t d_wb = p.dcache_writebacks();
+  uint64_t d_cold = p.dcache_cold_misses();
+  uint64_t d_conflict = p.dcache_conflict_misses();
+  uint64_t d_capacity = p.dcache_capacity_misses();
   uint64_t stall_all = p.stall_cycles();
   uint64_t stall_cache = p.cache_stall_cycles();
   uint64_t stall_hazard = p.hazard_stall_cycles();
@@ -370,6 +376,12 @@ int main(int argc, char** argv) {
       << ", D-Evict: " << d_evict
       << ", I-WB: " << i_wb
       << ", D-WB: " << d_wb
+      << ", I-ColdMiss: " << i_cold
+      << ", I-ConflictMiss: " << i_conflict
+      << ", I-CapacityMiss: " << i_capacity
+      << ", D-ColdMiss: " << d_cold
+      << ", D-ConflictMiss: " << d_conflict
+      << ", D-CapacityMiss: " << d_capacity
       << ", Stall: " << stall_all
       << ", CacheStall: " << stall_cache
       << ", HazardStall: " << stall_hazard

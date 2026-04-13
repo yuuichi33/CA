@@ -57,7 +57,7 @@ fi
 
 if [ -n "$CSV_OUT" ]; then
   mkdir -p "$(dirname "$CSV_OUT")"
-  echo "test,ms,rc,cycles,instrs,i_cache_hit_pct,d_cache_hit_pct" > "$CSV_OUT"
+  echo "test,ms,rc,cycles,instrs,i_cache_hit_pct,d_cache_hit_pct,stall,cache_stall,hazard_stall,i_cold_miss,i_conflict_miss,i_capacity_miss,d_cold_miss,d_conflict_miss,d_capacity_miss" > "$CSV_OUT"
 fi
 
 total=0
@@ -88,13 +88,31 @@ for f in "${files[@]}"; do
   instrs=$(echo "$OUT" | sed -n 's/.*Instrs: *\([0-9]*\).*/\1/p' | tail -n 1)
   i_pct=$(echo "$OUT" | sed -n 's/.*I-Cache Hit: *\([0-9.]*\)%.*/\1/p' | tail -n 1)
   d_pct=$(echo "$OUT" | sed -n 's/.*D-Cache Hit: *\([0-9.]*\)%.*/\1/p' | tail -n 1)
+  stall=$(echo "$OUT" | sed -n 's/.*Stall: *\([0-9]*\).*/\1/p' | tail -n 1)
+  cache_stall=$(echo "$OUT" | sed -n 's/.*CacheStall: *\([0-9]*\).*/\1/p' | tail -n 1)
+  hazard_stall=$(echo "$OUT" | sed -n 's/.*HazardStall: *\([0-9]*\).*/\1/p' | tail -n 1)
+  i_cold=$(echo "$OUT" | sed -n 's/.*I-ColdMiss: *\([0-9]*\).*/\1/p' | tail -n 1)
+  i_conflict=$(echo "$OUT" | sed -n 's/.*I-ConflictMiss: *\([0-9]*\).*/\1/p' | tail -n 1)
+  i_capacity=$(echo "$OUT" | sed -n 's/.*I-CapacityMiss: *\([0-9]*\).*/\1/p' | tail -n 1)
+  d_cold=$(echo "$OUT" | sed -n 's/.*D-ColdMiss: *\([0-9]*\).*/\1/p' | tail -n 1)
+  d_conflict=$(echo "$OUT" | sed -n 's/.*D-ConflictMiss: *\([0-9]*\).*/\1/p' | tail -n 1)
+  d_capacity=$(echo "$OUT" | sed -n 's/.*D-CapacityMiss: *\([0-9]*\).*/\1/p' | tail -n 1)
   cycles=${cycles:-0}
   instrs=${instrs:-0}
   i_pct=${i_pct:-0}
   d_pct=${d_pct:-0}
+  stall=${stall:-0}
+  cache_stall=${cache_stall:-0}
+  hazard_stall=${hazard_stall:-0}
+  i_cold=${i_cold:-0}
+  i_conflict=${i_conflict:-0}
+  i_capacity=${i_capacity:-0}
+  d_cold=${d_cold:-0}
+  d_conflict=${d_conflict:-0}
+  d_capacity=${d_capacity:-0}
 
   if [ -n "$CSV_OUT" ]; then
-    echo "$name,$ms,$rc,$cycles,$instrs,$i_pct,$d_pct" >> "$CSV_OUT"
+    echo "$name,$ms,$rc,$cycles,$instrs,$i_pct,$d_pct,$stall,$cache_stall,$hazard_stall,$i_cold,$i_conflict,$i_capacity,$d_cold,$d_conflict,$d_capacity" >> "$CSV_OUT"
   fi
 
   # rv32ui exits with rc=0 for pass and rc!=0 for fail.

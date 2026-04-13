@@ -64,6 +64,10 @@ add_executable(test_cache_wb tests/test_cache_wb.cpp)
 target_link_libraries(test_cache_wb PRIVATE cpu isa)
 add_test(NAME cache_writeback_test COMMAND test_cache_wb)
 
+add_executable(test_cache_miss_types tests/test_cache_miss_types.cpp)
+target_link_libraries(test_cache_miss_types PRIVATE cpu isa)
+add_test(NAME cache_miss_types_test COMMAND test_cache_miss_types)
+
 add_executable(test_pipeline_load_store_instr tests/test_pipeline_load_store_instr.cpp)
 target_link_libraries(test_pipeline_load_store_instr PRIVATE cpu isa)
 add_test(NAME pipeline_load_store_instr_test COMMAND test_pipeline_load_store_instr)

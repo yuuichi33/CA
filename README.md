@@ -67,7 +67,7 @@ bash test_all.sh --csv docs/rv32ui_perf_full_nocache.csv --no-cache --cache-pena
 ./build/mycpu --quiet --load benchmarks/quicksort_stress.elf --no-cache --cache-penalty 10
 
 # 4) generate report + charts
-python3 tools/gen_full_test_report.py --run-tag 20260409
+python3 tools/gen_full_test_report.py --run-tag <run-tag>
 ```
 
 ### Outputs
@@ -78,13 +78,65 @@ python3 tools/gen_full_test_report.py --run-tag 20260409
 - `docs/figures/full_run_<run-tag>_hitrate_scatter.png`
 - `docs/figures/full_run_<run-tag>_benchmark_cycles_log.png`
 
+### Local Gate (Blocking)
+
+```bash
+# full pipeline: build + ctest + matrix + gate
+./tools/run_cache_gate_local.sh --run-tag 20260413
+
+# reuse existing matrix summary for quick gate check
+./tools/run_cache_gate_local.sh \
+  --skip-build --skip-ctest --skip-matrix \
+  --summary docs/cache_matrix/20260413/policy_summary.csv
+```
+
+## Cache Regression Matrix And Gate
+
+```bash
+# 1) Run 4 cache policy combinations + no-cache baseline
+./tools/run_cache_matrix.sh --run-tag 20260413
+
+# 2) Evaluate PASS/WARN/FAIL gate based on policy summary
+python3 tools/check_cache_gate.py \
+  --summary docs/cache_matrix/20260413/policy_summary.csv \
+  --baseline wb_wa \
+  --output-prefix docs/cache_matrix/20260413/gate
+
+# 3) Regenerate full report with matrix/gate sections
+python3 tools/gen_full_test_report.py \
+  --run-tag 20260413 \
+  --run-dir tmp/full_run_20260409 \
+  --cache-matrix-dir docs/cache_matrix/20260413 \
+  --gate-prefix docs/cache_matrix/20260413/gate
+```
+
+### CI Entry (ready-to-enable)
+
+- Workflow file: `.github/workflows/cache-gate.yml`
+- Current trigger: `workflow_dispatch` (manual)
+- To enable automatic blocking on PR/push later, uncomment `push/pull_request` triggers in the workflow file.
+
+### Matrix/Gate Outputs
+
+- `docs/cache_matrix/<run-tag>/policy_summary.csv`
+- `docs/cache_matrix/<run-tag>/matrix_detail.csv`
+- `docs/cache_matrix/<run-tag>/gate_checks.csv`
+- `docs/cache_matrix/<run-tag>/gate_result.json`
+- `docs/cache_matrix/<run-tag>/gate_report.md`
+
 ## Cache Highlights
 
 - Split I-cache / D-cache with configurable size, line size, associativity and miss penalty.
 - Configurable policies: write-back/write-through and write-allocate/no-write-allocate.
+- Miss decomposition: cold/conflict/capacity counters are exported in perf line, CSV and trace metrics.
+- Cache regression automation: WB/WT x WA/no-WA matrix + no-cache baseline.
+- Gate automation: PASS/WARN/FAIL checks for functional regressions, hit-rate drops and cycle regressions.
+- Latest matrix (20260413): all 5 profiles are 42/42 PASS.
+- Latest gate (20260413): PASS with baseline `wb_wa` and 0 issues.
+- Latest matrix winner: `wb_wa` avg speedup vs no-cache = 6.4705x.
 - Verified correctness: rv32ui p1/p10/no-cache are all 42/42 PASS.
 - Quantified gains (full report):
-  - rv32ui p10 average speedup: 6.47x
+  - rv32ui p10 average speedup: 6.46x
   - p10/p1 average cycle ratio: 1.54x
   - matmul no-cache/cache: 11.34x
   - quicksort no-cache/cache: 12.71x
@@ -131,11 +183,13 @@ camycpu/
 ## Key Files
 
 - `tools/gen_full_test_report.py`: generates markdown report, summary CSV, and PNG charts
+- `tools/run_cache_gate_local.sh`: one-command local gate pipeline (non-zero exit blocks)
 - `docs/FULL_TEST_PERFORMANCE_REPORT.md`: consolidated full-run report
 - `docs/rv32ui_perf_full_p1.csv`: rv32ui profile p1 dataset
 - `docs/rv32ui_perf_full_p10.csv`: rv32ui profile p10 dataset
 - `docs/rv32ui_perf_full_nocache.csv`: rv32ui profile no-cache dataset
 - `docs/DOCS_CATALOG.md`: docs md/csv classification and purpose index
+- `.github/workflows/cache-gate.yml`: CI workflow template for gate blocking
 - `web/index.html`, `web/app.js`, `web/style.css`: trace dashboard
 
 ## Docs Organization
@@ -143,12 +197,24 @@ camycpu/
 - `docs/` keeps current delivery artifacts only:
   - `FULL_TEST_PERFORMANCE_REPORT.md`
   - `BENCHMARK_REPORT.md`
-  - `full_test_summary_*.csv`
+  - `full_test_summary_20260413.csv`
   - `rv32ui_perf_full_*.csv`
-  - `figures/`
+  - `figures/full_run_20260413_*.png`
+  - `cache_matrix/20260413/`
+  - `second/`
 - `archive/docs-history/reports/` keeps historical markdown reports.
 - `archive/docs-history/csv-legacy/` keeps historical csv datasets.
+- `archive/docs-history/figures/` keeps historical figure snapshots.
 - See `docs/DOCS_CATALOG.md` for file-by-file explanations.
+
+## docs/second Deliverables
+
+- `docs/second/README.md`: second-stage document index.
+- `docs/second/progress_audit_20260413.md`: progress audit and cache-mainline status.
+- `docs/second/cache_gate_usage.md`: cache gate usage, threshold tuning, and CI example.
+- `docs/second/verification_checklist_20260413.md`: final verification checklist.
+- `docs/second/visual_demo_guide.md`: on-site visual demo guide for stall animation and cache hit-rate.
+- `docs/second/detection_report_20260413.md`: consolidated detection report.
 
 ## Archive And Cleanup
 

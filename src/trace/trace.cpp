@@ -96,11 +96,17 @@ void TraceWriter::WriteCycle(const CycleRecord& record) {
       << ",\"icache_misses\":" << record.icache_misses
       << ",\"icache_evictions\":" << record.icache_evictions
       << ",\"icache_writebacks\":" << record.icache_writebacks
+      << ",\"icache_cold_misses\":" << record.icache_cold_misses
+      << ",\"icache_conflict_misses\":" << record.icache_conflict_misses
+      << ",\"icache_capacity_misses\":" << record.icache_capacity_misses
       << ",\"dcache_accesses\":" << record.dcache_accesses
       << ",\"dcache_hits\":" << record.dcache_hits
       << ",\"dcache_misses\":" << record.dcache_misses
       << ",\"dcache_evictions\":" << record.dcache_evictions
       << ",\"dcache_writebacks\":" << record.dcache_writebacks
+      << ",\"dcache_cold_misses\":" << record.dcache_cold_misses
+      << ",\"dcache_conflict_misses\":" << record.dcache_conflict_misses
+      << ",\"dcache_capacity_misses\":" << record.dcache_capacity_misses
       << ",\"stall_cycles\":" << record.stall_cycles
       << ",\"cache_stall_cycles\":" << record.cache_stall_cycles
       << ",\"hazard_stall_cycles\":" << record.hazard_stall_cycles

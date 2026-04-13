@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import csv
+import json
 import math
 import os
 import re
@@ -83,15 +84,35 @@ def parse_args():
     parser.add_argument("--run-tag", default=today_tag, help="Tag used in filenames, default YYYYMMDD.")
     parser.add_argument("--run-dir", default="", help="Input run directory, default tmp/full_run_<run-tag>.")
     parser.add_argument("--report-date", default=date.today().isoformat(), help="Date shown in report header.")
+    parser.add_argument(
+        "--cache-matrix-dir",
+        default="",
+        help="Optional cache matrix dir, default docs/cache_matrix/<run-tag> when present.",
+    )
+    parser.add_argument(
+        "--gate-prefix",
+        default="",
+        help="Optional gate output prefix (without _result.json suffix).",
+    )
     return parser.parse_args()
 
 
-def build_paths(run_tag, run_dir):
+def build_paths(run_tag, run_dir, cache_matrix_dir, gate_prefix):
     resolved_run_dir = run_dir or os.path.join(ROOT, "tmp", f"full_run_{run_tag}")
+    resolved_matrix_dir = cache_matrix_dir
+    if not resolved_matrix_dir:
+        guess_dir = os.path.join(ROOT, "docs", "cache_matrix", run_tag)
+        if os.path.isdir(guess_dir):
+            resolved_matrix_dir = guess_dir
+    resolved_gate_prefix = gate_prefix
+    if not resolved_gate_prefix and resolved_matrix_dir:
+        resolved_gate_prefix = os.path.join(resolved_matrix_dir, "gate")
+
     fig_dir = os.path.join(ROOT, "docs", "figures")
     return {
         "run_tag": run_tag,
         "run_dir": resolved_run_dir,
+        "matrix_dir": resolved_matrix_dir,
         "p1_csv": os.path.join(ROOT, "docs", "rv32ui_perf_full_p1.csv"),
         "p10_csv": os.path.join(ROOT, "docs", "rv32ui_perf_full_p10.csv"),
         "nc_csv": os.path.join(ROOT, "docs", "rv32ui_perf_full_nocache.csv"),
@@ -106,6 +127,11 @@ def build_paths(run_tag, run_dir):
         "speedup_fig": os.path.join(fig_dir, f"full_run_{run_tag}_speedup_bar.png"),
         "scatter_fig": os.path.join(fig_dir, f"full_run_{run_tag}_hitrate_scatter.png"),
         "bench_fig": os.path.join(fig_dir, f"full_run_{run_tag}_benchmark_cycles_log.png"),
+        "matrix_summary": os.path.join(resolved_matrix_dir, "policy_summary.csv") if resolved_matrix_dir else "",
+        "matrix_detail": os.path.join(resolved_matrix_dir, "matrix_detail.csv") if resolved_matrix_dir else "",
+        "gate_checks": (resolved_gate_prefix + "_checks.csv") if resolved_gate_prefix else "",
+        "gate_result": (resolved_gate_prefix + "_result.json") if resolved_gate_prefix else "",
+        "gate_report": (resolved_gate_prefix + "_report.md") if resolved_gate_prefix else "",
         "bench_logs": {
             "hello_default": os.path.join(resolved_run_dir, "hello_default.log"),
             "matmul_cache_p10": os.path.join(resolved_run_dir, "matmul_cache_p10.log"),
@@ -550,9 +576,23 @@ def read_lines(path):
         return [ln.rstrip() for ln in f if ln.strip()]
 
 
+def read_optional_csv_list(path):
+    if not path or not os.path.exists(path):
+        return []
+    with open(path, newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
+def read_optional_json(path):
+    if not path or not os.path.exists(path):
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 def main():
     args = parse_args()
-    paths = build_paths(args.run_tag, args.run_dir)
+    paths = build_paths(args.run_tag, args.run_dir, args.cache_matrix_dir, args.gate_prefix)
 
     ensure_dir(paths["fig_dir"])
 
@@ -586,6 +626,15 @@ def main():
                 "instrs_nc": to_int(rn.get("instrs")),
                 "i_hit_p10": to_float(r10.get("i_cache_hit_pct")),
                 "d_hit_p10": to_float(r10.get("d_cache_hit_pct")),
+                "stall_p10": to_int(r10.get("stall")),
+                "cache_stall_p10": to_int(r10.get("cache_stall")),
+                "hazard_stall_p10": to_int(r10.get("hazard_stall")),
+                "i_cold_p10": to_int(r10.get("i_cold_miss")),
+                "i_conflict_p10": to_int(r10.get("i_conflict_miss")),
+                "i_capacity_p10": to_int(r10.get("i_capacity_miss")),
+                "d_cold_p10": to_int(r10.get("d_cold_miss")),
+                "d_conflict_p10": to_int(r10.get("d_conflict_miss")),
+                "d_capacity_p10": to_int(r10.get("d_capacity_miss")),
                 "speedup_p10": (cn / c10) if c10 > 0 else 0.0,
                 "speedup_p1": (cn / c1) if c1 > 0 else 0.0,
                 "penalty_ratio": (c10 / c1) if c1 > 0 else 0.0,
@@ -602,6 +651,9 @@ def main():
         d["name"] = name
         d["rc"] = bench_rc.get(name, -1)
         bench_items.append(d)
+
+    matrix_rows = read_optional_csv_list(paths["matrix_summary"])
+    gate_result = read_optional_json(paths["gate_result"])
 
     speedups = [r["speedup_p10"] for r in rows if r["speedup_p10"] > 0]
     penalty_ratios = [r["penalty_ratio"] for r in rows if r["penalty_ratio"] > 0]
@@ -628,7 +680,25 @@ def main():
         "corr_i_speedup": corr(i_hits, speedups) if rows else 0.0,
         "mem_avg_speedup": statistics.mean([r["speedup_p10"] for r in mem_rows]) if mem_rows else 0.0,
         "non_mem_avg_speedup": statistics.mean([r["speedup_p10"] for r in non_mem_rows]) if non_mem_rows else 0.0,
+        "avg_stall_p10": statistics.mean([r["stall_p10"] for r in rows]) if rows else 0.0,
+        "avg_cache_stall_p10": statistics.mean([r["cache_stall_p10"] for r in rows]) if rows else 0.0,
+        "avg_hazard_stall_p10": statistics.mean([r["hazard_stall_p10"] for r in rows]) if rows else 0.0,
+        "avg_i_cold_p10": statistics.mean([r["i_cold_p10"] for r in rows]) if rows else 0.0,
+        "avg_i_conflict_p10": statistics.mean([r["i_conflict_p10"] for r in rows]) if rows else 0.0,
+        "avg_i_capacity_p10": statistics.mean([r["i_capacity_p10"] for r in rows]) if rows else 0.0,
+        "avg_d_cold_p10": statistics.mean([r["d_cold_p10"] for r in rows]) if rows else 0.0,
+        "avg_d_conflict_p10": statistics.mean([r["d_conflict_p10"] for r in rows]) if rows else 0.0,
+        "avg_d_capacity_p10": statistics.mean([r["d_capacity_p10"] for r in rows]) if rows else 0.0,
     }
+
+    total_i_miss = sum(r["i_cold_p10"] + r["i_conflict_p10"] + r["i_capacity_p10"] for r in rows)
+    total_d_miss = sum(r["d_cold_p10"] + r["d_conflict_p10"] + r["d_capacity_p10"] for r in rows)
+    stats["i_cold_share"] = (sum(r["i_cold_p10"] for r in rows) / total_i_miss) if total_i_miss else 0.0
+    stats["i_conflict_share"] = (sum(r["i_conflict_p10"] for r in rows) / total_i_miss) if total_i_miss else 0.0
+    stats["i_capacity_share"] = (sum(r["i_capacity_p10"] for r in rows) / total_i_miss) if total_i_miss else 0.0
+    stats["d_cold_share"] = (sum(r["d_cold_p10"] for r in rows) / total_d_miss) if total_d_miss else 0.0
+    stats["d_conflict_share"] = (sum(r["d_conflict_p10"] for r in rows) / total_d_miss) if total_d_miss else 0.0
+    stats["d_capacity_share"] = (sum(r["d_capacity_p10"] for r in rows) / total_d_miss) if total_d_miss else 0.0
 
     rows_sorted = sorted(rows, key=lambda x: x["speedup_p10"], reverse=True)
     top5 = rows_sorted[:5]
@@ -656,6 +726,15 @@ def main():
             "penalty_ratio_p10_over_p1",
             "i_hit_p10",
             "d_hit_p10",
+            "stall_p10",
+            "cache_stall_p10",
+            "hazard_stall_p10",
+            "i_cold_miss_p10",
+            "i_conflict_miss_p10",
+            "i_capacity_miss_p10",
+            "d_cold_miss_p10",
+            "d_conflict_miss_p10",
+            "d_capacity_miss_p10",
             "mem_test",
         ])
         for r in rows:
@@ -675,6 +754,15 @@ def main():
                 "{:.6f}".format(r["penalty_ratio"]),
                 "{:.2f}".format(r["i_hit_p10"]),
                 "{:.2f}".format(r["d_hit_p10"]),
+                r["stall_p10"],
+                r["cache_stall_p10"],
+                r["hazard_stall_p10"],
+                r["i_cold_p10"],
+                r["i_conflict_p10"],
+                r["i_capacity_p10"],
+                r["d_cold_p10"],
+                r["d_conflict_p10"],
+                r["d_capacity_p10"],
                 1 if r["mem_test"] else 0,
             ])
 
@@ -767,6 +855,104 @@ def main():
     ))
     lines.append("- D-hit 与 speedup 相关系数: {:.3f}".format(stats["corr_d_speedup"]))
     lines.append("- I-hit 与 speedup 相关系数: {:.3f}".format(stats["corr_i_speedup"]))
+    lines.append("")
+    lines.append("### Cache Stall 与 Miss 分解（p10）")
+    lines.append("")
+    lines.append(
+        "- 平均 stall 拆分（stall / cache_stall / hazard_stall）: {:.2f} / {:.2f} / {:.2f}".format(
+            stats["avg_stall_p10"], stats["avg_cache_stall_p10"], stats["avg_hazard_stall_p10"]
+        )
+    )
+    lines.append(
+        "- 平均 I-miss 分解（cold/conflict/capacity）: {:.2f} / {:.2f} / {:.2f}".format(
+            stats["avg_i_cold_p10"], stats["avg_i_conflict_p10"], stats["avg_i_capacity_p10"]
+        )
+    )
+    lines.append(
+        "- 平均 D-miss 分解（cold/conflict/capacity）: {:.2f} / {:.2f} / {:.2f}".format(
+            stats["avg_d_cold_p10"], stats["avg_d_conflict_p10"], stats["avg_d_capacity_p10"]
+        )
+    )
+    lines.append(
+        "- I-miss 占比（cold/conflict/capacity）: {:.1f}% / {:.1f}% / {:.1f}%".format(
+            stats["i_cold_share"] * 100.0,
+            stats["i_conflict_share"] * 100.0,
+            stats["i_capacity_share"] * 100.0,
+        )
+    )
+    lines.append(
+        "- D-miss 占比（cold/conflict/capacity）: {:.1f}% / {:.1f}% / {:.1f}%".format(
+            stats["d_cold_share"] * 100.0,
+            stats["d_conflict_share"] * 100.0,
+            stats["d_capacity_share"] * 100.0,
+        )
+    )
+
+    top_d_conflict = sorted(rows, key=lambda x: x["d_conflict_p10"], reverse=True)[:5]
+    if top_d_conflict and top_d_conflict[0]["d_conflict_p10"] > 0:
+        lines.append("")
+        lines.append("#### D-conflict miss Top 5")
+        lines.append("")
+        lines.append("| test | d_conflict_miss | d_capacity_miss | d_hit |")
+        lines.append("|---|---:|---:|---:|")
+        for r in top_d_conflict:
+            lines.append(
+                "| {} | {} | {} | {:.2f}% |".format(
+                    r["test"], r["d_conflict_p10"], r["d_capacity_p10"], r["d_hit_p10"]
+                )
+            )
+    else:
+        lines.append("- miss 分解字段当前为 0；若需专项分析，请先使用新版 `test_all.sh` 重跑 CSV。")
+
+    lines.append("")
+    lines.append("### Cache 回归矩阵与门禁")
+    lines.append("")
+    if matrix_rows:
+        lines.append("| policy | pass/tests | avg_cycles | avg_i_hit_pct | avg_d_hit_pct | avg_speedup_vs_nocache |")
+        lines.append("|---|---:|---:|---:|---:|---:|")
+        for mr in matrix_rows:
+            lines.append(
+                "| {} | {}/{} | {} | {} | {} | {} |".format(
+                    mr.get("policy", "-"),
+                    mr.get("pass", "0"),
+                    mr.get("tests", "0"),
+                    mr.get("avg_cycles", "0"),
+                    mr.get("avg_i_hit_pct", "0"),
+                    mr.get("avg_d_hit_pct", "0"),
+                    mr.get("avg_speedup_vs_nocache", "0"),
+                )
+            )
+        lines.append("")
+        lines.append("- matrix summary: `{}`".format(os.path.relpath(paths["matrix_summary"], ROOT).replace("\\", "/")))
+        lines.append("- matrix detail: `{}`".format(os.path.relpath(paths["matrix_detail"], ROOT).replace("\\", "/")))
+    else:
+        lines.append("- 未发现 `policy_summary.csv`；可先运行 `tools/run_cache_matrix.sh` 生成矩阵数据。")
+
+    if gate_result:
+        lines.append("")
+        lines.append("- gate status: **{}** (baseline: `{}`)".format(gate_result.get("status", "UNKNOWN"), gate_result.get("baseline", "-")))
+        issues = gate_result.get("issues", [])
+        lines.append("- gate issues: {}".format(len(issues)))
+        if issues:
+            lines.append("")
+            lines.append("| severity | policy | metric | value | threshold | message |")
+            lines.append("|---|---|---|---:|---:|---|")
+            for it in issues[:10]:
+                lines.append(
+                    "| {} | {} | {} | {:.4f} | {:.4f} | {} |".format(
+                        it.get("severity", "-"),
+                        it.get("policy", "-"),
+                        it.get("metric", "-"),
+                        to_float(it.get("value")),
+                        to_float(it.get("threshold")),
+                        it.get("message", "-"),
+                    )
+                )
+        if paths["gate_report"] and os.path.exists(paths["gate_report"]):
+            lines.append("- gate report: `{}`".format(os.path.relpath(paths["gate_report"], ROOT).replace("\\", "/")))
+    else:
+        lines.append("- 未发现 gate 结果；可执行 `python3 tools/check_cache_gate.py --summary <policy_summary.csv>` 生成门禁结论。")
+
     lines.append("")
     lines.append("### Top 5 speedup（p10）")
     lines.append("")
@@ -880,6 +1066,21 @@ def main():
     lines.append("- [docs/figures/{}](figures/{})".format(speedup_name, speedup_name))
     lines.append("- [docs/figures/{}](figures/{})".format(scatter_name, scatter_name))
     lines.append("- [docs/figures/{}](figures/{})".format(bench_name, bench_name))
+    if paths["matrix_summary"] and os.path.exists(paths["matrix_summary"]):
+        matrix_summary_rel = os.path.relpath(paths["matrix_summary"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(matrix_summary_rel, matrix_summary_rel))
+    if paths["matrix_detail"] and os.path.exists(paths["matrix_detail"]):
+        matrix_detail_rel = os.path.relpath(paths["matrix_detail"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(matrix_detail_rel, matrix_detail_rel))
+    if paths["gate_checks"] and os.path.exists(paths["gate_checks"]):
+        gate_checks_rel = os.path.relpath(paths["gate_checks"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(gate_checks_rel, gate_checks_rel))
+    if paths["gate_result"] and os.path.exists(paths["gate_result"]):
+        gate_result_rel = os.path.relpath(paths["gate_result"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(gate_result_rel, gate_result_rel))
+    if paths["gate_report"] and os.path.exists(paths["gate_report"]):
+        gate_report_rel = os.path.relpath(paths["gate_report"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(gate_report_rel, gate_report_rel))
     lines.append("- [{0}/ctest_full.log](../{0}/ctest_full.log)".format(run_dir_rel))
     lines.append("- [{0}/rv32ui_p1.log](../{0}/rv32ui_p1.log)".format(run_dir_rel))
     lines.append("- [{0}/rv32ui_p10.log](../{0}/rv32ui_p10.log)".format(run_dir_rel))

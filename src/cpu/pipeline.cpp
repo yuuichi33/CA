@@ -192,11 +192,17 @@ bool Pipeline::step() {
     rec.icache_misses = icache_ ? icache_->misses() : 0;
     rec.icache_evictions = icache_ ? icache_->evictions() : 0;
     rec.icache_writebacks = icache_ ? icache_->writebacks() : 0;
+    rec.icache_cold_misses = icache_ ? icache_->cold_misses() : 0;
+    rec.icache_conflict_misses = icache_ ? icache_->conflict_misses() : 0;
+    rec.icache_capacity_misses = icache_ ? icache_->capacity_misses() : 0;
     rec.dcache_accesses = dcache_ ? dcache_->accesses() : 0;
     rec.dcache_hits = dcache_ ? dcache_->hits() : 0;
     rec.dcache_misses = dcache_ ? dcache_->misses() : 0;
     rec.dcache_evictions = dcache_ ? dcache_->evictions() : 0;
     rec.dcache_writebacks = dcache_ ? dcache_->writebacks() : 0;
+    rec.dcache_cold_misses = dcache_ ? dcache_->cold_misses() : 0;
+    rec.dcache_conflict_misses = dcache_ ? dcache_->conflict_misses() : 0;
+    rec.dcache_capacity_misses = dcache_ ? dcache_->capacity_misses() : 0;
     rec.stall_cycles = stall_cycles_;
     rec.cache_stall_cycles = cache_stall_cycles_;
     rec.hazard_stall_cycles = hazard_stall_cycles_;

@@ -98,11 +98,17 @@ public:
   uint64_t icache_misses() const { return icache_ ? icache_->misses() : 0; }
   uint64_t icache_evictions() const { return icache_ ? icache_->evictions() : 0; }
   uint64_t icache_writebacks() const { return icache_ ? icache_->writebacks() : 0; }
+  uint64_t icache_cold_misses() const { return icache_ ? icache_->cold_misses() : 0; }
+  uint64_t icache_conflict_misses() const { return icache_ ? icache_->conflict_misses() : 0; }
+  uint64_t icache_capacity_misses() const { return icache_ ? icache_->capacity_misses() : 0; }
   uint64_t dcache_accesses() const { return dcache_ ? dcache_->accesses() : 0; }
   uint64_t dcache_hits() const { return dcache_ ? dcache_->hits() : 0; }
   uint64_t dcache_misses() const { return dcache_ ? dcache_->misses() : 0; }
   uint64_t dcache_evictions() const { return dcache_ ? dcache_->evictions() : 0; }
   uint64_t dcache_writebacks() const { return dcache_ ? dcache_->writebacks() : 0; }
+  uint64_t dcache_cold_misses() const { return dcache_ ? dcache_->cold_misses() : 0; }
+  uint64_t dcache_conflict_misses() const { return dcache_ ? dcache_->conflict_misses() : 0; }
+  uint64_t dcache_capacity_misses() const { return dcache_ ? dcache_->capacity_misses() : 0; }
   uint64_t stall_cycles() const { return stall_cycles_; }
   uint64_t cache_stall_cycles() const { return cache_stall_cycles_; }
   uint64_t hazard_stall_cycles() const { return hazard_stall_cycles_; }

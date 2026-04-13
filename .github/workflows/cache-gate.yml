@@ -1,0 +1,77 @@
+name: Cache Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_tag:
+        description: "Run tag for output directory"
+        required: false
+        default: ""
+      cycles:
+        description: "Cycle limit for each rv32ui run"
+        required: false
+        default: "2000000"
+      allow_warn:
+        description: "Treat gate WARN as PASS"
+        required: false
+        default: "false"
+
+# To enable automatic checks later, uncomment these triggers.
+#  push:
+#    branches: [ "main" ]
+#  pull_request:
+#    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  cache-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++
+
+      - name: Run cache gate pipeline
+        run: |
+          chmod +x tools/run_cache_gate_local.sh tools/run_cache_matrix.sh
+          TAG_INPUT="${{ github.event.inputs.run_tag }}"
+          CYCLES_INPUT="${{ github.event.inputs.cycles }}"
+          WARN_INPUT="${{ github.event.inputs.allow_warn }}"
+          if [[ -z "$TAG_INPUT" ]]; then
+            TAG_INPUT="$(date +%Y%m%d)-ci-${{ github.run_number }}"
+          fi
+          EXTRA_ARGS=()
+          if [[ "$WARN_INPUT" == "true" ]]; then
+            EXTRA_ARGS+=(--allow-warn)
+          fi
+          ./tools/run_cache_gate_local.sh \
+            --run-tag "$TAG_INPUT" \
+            --cycles "$CYCLES_INPUT" \
+            "${EXTRA_ARGS[@]}"
+
+      - name: Upload cache gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cache-gate-artifacts
+          path: |
+            docs/cache_matrix/**/policy_summary.csv
+            docs/cache_matrix/**/matrix_detail.csv
+            docs/cache_matrix/**/gate_checks.csv
+            docs/cache_matrix/**/gate_result.json
+            docs/cache_matrix/**/gate_report.md

@@ -15,8 +15,6 @@
 | benchmark 返回码 | `tmp/full_run_20260409/benchmark_rcs.csv` | 组合场景正确性检查 |
 | benchmark 性能日志 | `tmp/full_run_20260409/{hello,matmul,quicksort}_*.log` | cycles/instrs/hit/stall 提取 |
 
-补充说明：`docs/rv32ui_perf_full_p1.csv` 已于 2026-04-13 完成去重清洗，当前为 42 条唯一测试记录。
-
 ### 0.2 三组配置的含义
 
 | 配置名 | cache 状态 | miss penalty | 含义 |
@@ -65,26 +63,60 @@
 
 ## 3. 性能统计（rv32ui）
 
-- p10 平均 speedup: 6.47x
+- p10 平均 speedup: 6.46x
 - p10 中位数 speedup: 6.71x
-- p10 P90 speedup: 7.43x
-- p10 几何均值 speedup: 6.42x
+- p10 P90 speedup: 7.42x
+- p10 几何均值 speedup: 6.40x
 - p10/p1 平均 cycle 比: 1.54x
-    - 增加 10 倍的 miss penalty 仅导致执行周期增加了 1.54 倍，说明 Cache 极大地吸收了内存延迟。绝大部分访存都在 Cache 命中，没有穿透到低速内存。
-- 平均执行时长 ms（p1 / p10 / no-cache）: 3240.55 / 2848.19 / 2902.29
-- 访存密集测试平均 speedup: 6.63x；非访存测试平均 speedup: 6.41x
-- D-hit 与 speedup 相关系数: 0.530
-- I-hit 与 speedup 相关系数: 0.703
-    - 由于每执行一条指令都需要 Fetch，指令缓存缺失会导致流水线直接停顿；而数据访存仅在 Load/Store 时发生。因此，保障 I-Cache 的高命中率是提升当前架构性能的第一要务。
+  - 增加 10 倍的 miss penalty 仅导致执行周期增加了 1.54 倍，说明 Cache 极大地吸收了内存延迟。绝大部分访存都在 Cache 命中，没有穿透到低速内存。
+- 平均执行时长 ms（p1 / p10 / no-cache）: 3000.48 / 3100.14 / 3105.24
+- 访存密集测试平均 speedup: 6.57x；非访存测试平均 speedup: 6.41x
+- D-hit 与 speedup 相关系数: 0.475
+- I-hit 与 speedup 相关系数: 0.711
+
+### Cache Stall 与 Miss 分解（p10）
+
+- 平均 stall 拆分（stall / cache_stall / hazard_stall）: 5.19 / 315.14 / 5.19
+- 平均 I-miss 分解（cold/conflict/capacity）: 21.31 / 3.07 / 0.00
+- 平均 D-miss 分解（cold/conflict/capacity）: 0.31 / 1.83 / 0.00
+- I-miss 占比（cold/conflict/capacity）: 87.4% / 12.6% / 0.0%
+- D-miss 占比（cold/conflict/capacity）: 14.4% / 85.6% / 0.0%
+
+#### D-conflict miss Top 5
+
+| test | d_conflict_miss | d_capacity_miss | d_hit |
+|---|---:|---:|---:|
+| rv32ui-p-lh | 23 | 0 | 0.00% |
+| rv32ui-p-lhu | 23 | 0 | 0.00% |
+| rv32ui-p-ma_data | 17 | 0 | 0.00% |
+| rv32ui-p-fence_i | 5 | 0 | 0.00% |
+| rv32ui-p-sh | 5 | 0 | 91.30% |
+
+### Cache 回归矩阵与门禁
+
+| policy | pass/tests | avg_cycles | avg_i_hit_pct | avg_d_hit_pct | avg_speedup_vs_nocache |
+|---|---:|---:|---:|---:|---:|
+| wb_wa | 42/42 | 696.88 | 93.50 | 19.41 | 6.4705 |
+| wb_nowa | 42/42 | 698.88 | 93.50 | 18.34 | 6.4553 |
+| wt_wa | 42/42 | 698.88 | 93.50 | 18.34 | 6.4553 |
+| wt_nowa | 42/42 | 698.88 | 93.50 | 18.34 | 6.4553 |
+| nocache | 42/42 | 4633.83 | 0.00 | 0.00 | 1.0000 |
+
+- matrix summary: `docs/cache_matrix/20260413/policy_summary.csv`
+- matrix detail: `docs/cache_matrix/20260413/matrix_detail.csv`
+
+- gate status: **PASS** (baseline: `wb_wa`)
+- gate issues: 0
+- gate report: `docs/cache_matrix/20260413/gate_report.md`
 
 ### Top 5 speedup（p10）
 
 | test | speedup | cycles_nocache | cycles_p10 | 说明 |
 |---|---:|---:|---:|---|
-| rv32ui-p-ld_st | 7.93x | 15198 | 1916 | 纯内存加载/存储操作，无Cache时受制于内存墙，开启Cache后收益最大化 |
-| rv32ui-p-sh | 7.76x | 7083 | 913 | 内存半字写入 |
-| rv32ui-p-sb | 7.76x | 6500 | 838 | 内存字节写入 |
-| rv32ui-p-sw | 7.68x | 7150 | 931 | 内存字写入 | 
+| rv32ui-p-ld_st | 7.88x | 15198 | 1928 | 纯内存加载/存储操作，无Cache时受制于内存墙，开启Cache后收益最大化 |
+| rv32ui-p-sb | 7.65x | 6500 | 850 | 内存字节写入 |
+| rv32ui-p-sw | 7.58x | 7150 | 943 | 内存字写入 | 
+| rv32ui-p-sh | 7.46x | 7083 | 949 | 内存半字写入 |
 | rv32ui-p-fence_i | 7.45x | 5045 | 677 | 指令屏障，重度依赖指令/数据同步，Cache显著降低了同步代价 |
 
 ### Bottom 5 speedup（p10）
@@ -115,7 +147,7 @@
 
 图1：rv32ui speedup 条形图
 
-![speedup](figures/full_run_20260409_speedup_bar.png)
+![speedup](figures/full_run_20260413_speedup_bar.png)
 
 - 标题：RV32UI SPEEDUP DISTRIBUTION。
 - X轴：测试索引（按 speedup 从高到低排序）。
@@ -125,7 +157,7 @@
 
 图2：命中率与 speedup 散点图
 
-![hitrate_scatter](figures/full_run_20260409_hitrate_scatter.png)
+![hitrate_scatter](figures/full_run_20260413_hitrate_scatter.png)
 
 - 标题：CACHE HIT RATE VS SPEEDUP。
 - X轴：cache hit rate (%)。
@@ -135,7 +167,7 @@
 
 图3：benchmark cycles 对比（对数）
 
-![benchmark_cycles](figures/full_run_20260409_benchmark_cycles_log.png)
+![benchmark_cycles](figures/full_run_20260413_benchmark_cycles_log.png)
 
 - 标题：BENCHMARK CYCLES (LOG SCALE)。
 - X轴：benchmark case 索引。
@@ -156,10 +188,15 @@
 - [docs/rv32ui_perf_full_p1.csv](rv32ui_perf_full_p1.csv)
 - [docs/rv32ui_perf_full_p10.csv](rv32ui_perf_full_p10.csv)
 - [docs/rv32ui_perf_full_nocache.csv](rv32ui_perf_full_nocache.csv)
-- [docs/full_test_summary_20260409.csv](full_test_summary_20260409.csv)
-- [docs/figures/full_run_20260409_speedup_bar.png](figures/full_run_20260409_speedup_bar.png)
-- [docs/figures/full_run_20260409_hitrate_scatter.png](figures/full_run_20260409_hitrate_scatter.png)
-- [docs/figures/full_run_20260409_benchmark_cycles_log.png](figures/full_run_20260409_benchmark_cycles_log.png)
+- [docs/full_test_summary_20260413.csv](full_test_summary_20260413.csv)
+- [docs/figures/full_run_20260413_speedup_bar.png](figures/full_run_20260413_speedup_bar.png)
+- [docs/figures/full_run_20260413_hitrate_scatter.png](figures/full_run_20260413_hitrate_scatter.png)
+- [docs/figures/full_run_20260413_benchmark_cycles_log.png](figures/full_run_20260413_benchmark_cycles_log.png)
+- [docs/cache_matrix/20260413/policy_summary.csv](cache_matrix/20260413/policy_summary.csv)
+- [docs/cache_matrix/20260413/matrix_detail.csv](cache_matrix/20260413/matrix_detail.csv)
+- [docs/cache_matrix/20260413/gate_checks.csv](cache_matrix/20260413/gate_checks.csv)
+- [docs/cache_matrix/20260413/gate_result.json](cache_matrix/20260413/gate_result.json)
+- [docs/cache_matrix/20260413/gate_report.md](cache_matrix/20260413/gate_report.md)
 - [tmp/full_run_20260409/ctest_full.log](../tmp/full_run_20260409/ctest_full.log)
 - [tmp/full_run_20260409/rv32ui_p1.log](../tmp/full_run_20260409/rv32ui_p1.log)
 - [tmp/full_run_20260409/rv32ui_p10.log](../tmp/full_run_20260409/rv32ui_p10.log)
