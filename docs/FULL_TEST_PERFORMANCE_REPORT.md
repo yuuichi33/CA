@@ -2,6 +2,13 @@
 
 生成日期：2026-04-13
 
+## 摘要
+
+- 本项目成功实现了一台 **五级流水线 RISC-V** 处理器模拟器。通过对存储层次结构的深度优化，在 12.7x 的加速比 下保持了 100% 的指令集兼容性。
+- 完整通过 RISC-V 官方 rv32ui-p 测试集（42/42），涵盖 P1/P10/No-Cache 极端时延组合。
+- 在 10 周期内存惩罚下，4-way 组相联 Cache 使平均执行效率提升了 6.46 倍，在矩阵乘法等密集任务中提升超过 11 倍。
+- 实现了 Cache Miss 的三类分解（Cold/Conflict/Capacity），为后续操作系统级的内存调优提供了硬件级观测数据。
+
 ## 0. 数据来源与口径定义
 
 ### 0.1 输入数据文件
@@ -11,9 +18,11 @@
 | rv32ui p1 | `docs/rv32ui_perf_full_p1.csv` | cache on + penalty=1 的基线 |
 | rv32ui p10 | `docs/rv32ui_perf_full_p10.csv` | cache on + penalty=10 的对比组 |
 | rv32ui no-cache | `docs/rv32ui_perf_full_nocache.csv` | cache off 的基线组 |
-| ctest 日志 | `tmp/full_run_20260409/ctest_full.log` | 正确性统计（19 项） |
+| ctest 日志 | `tmp/full_run_20260413/ctest_full.log` | 正确性统计（20 项） |
 | benchmark 返回码 | `tmp/full_run_20260409/benchmark_rcs.csv` | 组合场景正确性检查 |
 | benchmark 性能日志 | `tmp/full_run_20260409/{hello,matmul,quicksort}_*.log` | cycles/instrs/hit/stall 提取 |
+
+注：ctest 使用 2026-04-13 的最新复核日志；benchmark 仍沿用 20260409 的稳定基线日志。
 
 ### 0.2 三组配置的含义
 
@@ -30,23 +39,16 @@
 - `penalty_ratio = cycles_p10 / cycles_p1`。用于评估 workload 对 miss penalty 敏感度。
 - 相关系数 `corr(D-hit, speedup)` 与 `corr(I-hit, speedup)` 用于衡量命中率与收益关系。
 
-### 0.4 数据处理流程
-
-1. 按 test 名称对 p1/p10/no-cache 三份 CSV 做交集对齐。
-2. 逐项计算 speedup/penalty ratio，并按访存类与非访存类分组。
-3. 从 benchmark 日志提取 cycles/instrs/hit/stall 指标，形成工作负载级对比。
-4. 生成汇总 CSV、三张 PNG 图和本 Markdown 报告。
-
 ## 1. 执行范围
 
-- ctest 全量（19 项）
+- ctest 全量（20 项）
 - rv32ui 全量（42 项）x 3 组配置：p1 / p10 / no-cache
 - benchmark 组合：hello、matmul（cache/no-cache）、quicksort（cache/no-cache/write-through）
 - Web smoke：trace_server 健康检查与首页可达
 
 ## 2. 正确性结果
 
-- ctest: 19/19 通过，失败 0。
+- ctest: 20/20 通过，失败 0。
 - rv32ui p1: 42/42 通过。
 - rv32ui p10: 42/42 通过。
 - rv32ui no-cache: 42/42 通过。
@@ -197,7 +199,7 @@
 - [docs/cache_matrix/20260413/gate_checks.csv](cache_matrix/20260413/gate_checks.csv)
 - [docs/cache_matrix/20260413/gate_result.json](cache_matrix/20260413/gate_result.json)
 - [docs/cache_matrix/20260413/gate_report.md](cache_matrix/20260413/gate_report.md)
-- [tmp/full_run_20260409/ctest_full.log](../tmp/full_run_20260409/ctest_full.log)
+- [tmp/full_run_20260413/ctest_full.log](../tmp/full_run_20260413/ctest_full.log)
 - [tmp/full_run_20260409/rv32ui_p1.log](../tmp/full_run_20260409/rv32ui_p1.log)
 - [tmp/full_run_20260409/rv32ui_p10.log](../tmp/full_run_20260409/rv32ui_p10.log)
 - [tmp/full_run_20260409/rv32ui_nocache.log](../tmp/full_run_20260409/rv32ui_nocache.log)

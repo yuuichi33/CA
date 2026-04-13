@@ -1,0 +1,46 @@
+Internal ctest changing into directory: /home/ys/camycpu/build
+Test project /home/ys/camycpu/build
+      Start  1: decoder_test
+ 1/20 Test  #1: decoder_test .....................   Passed    0.01 sec
+      Start  2: singlecycle_test
+ 2/20 Test  #2: singlecycle_test .................   Passed    0.01 sec
+      Start  3: pipeline_test
+ 3/20 Test  #3: pipeline_test ....................   Passed    0.01 sec
+      Start  4: pipeline_uart_rx_test
+ 4/20 Test  #4: pipeline_uart_rx_test ............   Passed    0.01 sec
+      Start  5: pipeline_forward_test
+ 5/20 Test  #5: pipeline_forward_test ............   Passed    0.02 sec
+      Start  6: timer_interrupt_test
+ 6/20 Test  #6: timer_interrupt_test .............   Passed    0.01 sec
+      Start  7: uart_mmio_test
+ 7/20 Test  #7: uart_mmio_test ...................   Passed    0.01 sec
+      Start  8: elf_loader_test
+ 8/20 Test  #8: elf_loader_test ..................   Passed    0.01 sec
+      Start  9: integration_uart_timer_test
+ 9/20 Test  #9: integration_uart_timer_test ......   Passed    0.01 sec
+      Start 10: load_store_byte_half_test
+10/20 Test #10: load_store_byte_half_test ........   Passed    0.01 sec
+      Start 11: cache_basic_test
+11/20 Test #11: cache_basic_test .................   Passed    0.01 sec
+      Start 12: cache_writeback_test
+12/20 Test #12: cache_writeback_test .............   Passed    0.01 sec
+      Start 13: cache_miss_types_test
+13/20 Test #13: cache_miss_types_test ............   Passed    0.01 sec
+      Start 14: pipeline_load_store_instr_test
+14/20 Test #14: pipeline_load_store_instr_test ...   Passed    0.01 sec
+      Start 15: isa_immediates_test
+15/20 Test #15: isa_immediates_test ..............   Passed    0.01 sec
+      Start 16: csrs_test
+16/20 Test #16: csrs_test ........................   Passed    0.01 sec
+      Start 17: mmu_basic_test
+17/20 Test #17: mmu_basic_test ...................   Passed    0.01 sec
+      Start 18: privilege_security_test
+18/20 Test #18: privilege_security_test ..........   Passed    0.01 sec
+      Start 19: trap_delegation_test
+19/20 Test #19: trap_delegation_test .............   Passed    0.01 sec
+      Start 20: sfence_vma_test
+20/20 Test #20: sfence_vma_test ..................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 20
+
+Total Test time (real) =   0.24 sec

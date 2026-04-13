@@ -78,6 +78,37 @@ python3 tools/gen_full_test_report.py --run-tag <run-tag>
 - `docs/figures/full_run_<run-tag>_hitrate_scatter.png`
 - `docs/figures/full_run_<run-tag>_benchmark_cycles_log.png`
 
+## Latest Test Results (2026-04-13)
+
+### Correctness
+
+| Scope | Result | Evidence |
+| --- | --- | --- |
+| CTest | 20/20 PASS | `tmp/full_run_20260413/ctest_full.log` |
+| rv32ui p1 | 42/42 PASS | `docs/rv32ui_perf_full_p1.csv` |
+| rv32ui p10 | 42/42 PASS | `docs/rv32ui_perf_full_p10.csv` |
+| rv32ui no-cache | 42/42 PASS | `docs/rv32ui_perf_full_nocache.csv` |
+
+### Benchmark Snapshot
+
+| Case | Cache cycles | No-cache cycles | Speedup |
+| --- | ---: | ---: | ---: |
+| matmul | 277966 | 3151861 | 11.34x |
+| quicksort_stress | 1972901 | 25074548 | 12.71x |
+
+### Cache Matrix + Gate
+
+| Policy | pass/tests | avg_cycles | avg_i_hit_pct | avg_d_hit_pct | avg_speedup_vs_nocache |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| wb_wa | 42/42 | 696.88 | 93.50 | 19.41 | 6.4705 |
+| wb_nowa | 42/42 | 698.88 | 93.50 | 18.34 | 6.4553 |
+| wt_wa | 42/42 | 698.88 | 93.50 | 18.34 | 6.4553 |
+| wt_nowa | 42/42 | 698.88 | 93.50 | 18.34 | 6.4553 |
+| nocache | 42/42 | 4633.83 | 0.00 | 0.00 | 1.0000 |
+
+- Gate status: PASS (baseline `wb_wa`, issues 0)
+- Artifacts: `docs/cache_matrix/20260413/policy_summary.csv`, `docs/cache_matrix/20260413/gate_result.json`, `docs/cache_matrix/20260413/gate_report.md`
+
 ### Local Gate (Blocking)
 
 ```bash
@@ -131,6 +162,7 @@ python3 tools/gen_full_test_report.py \
 - Miss decomposition: cold/conflict/capacity counters are exported in perf line, CSV and trace metrics.
 - Cache regression automation: WB/WT x WA/no-WA matrix + no-cache baseline.
 - Gate automation: PASS/WARN/FAIL checks for functional regressions, hit-rate drops and cycle regressions.
+- Latest CTest (20260413): 20/20 PASS.
 - Latest matrix (20260413): all 5 profiles are 42/42 PASS.
 - Latest gate (20260413): PASS with baseline `wb_wa` and 0 issues.
 - Latest matrix winner: `wb_wa` avg speedup vs no-cache = 6.4705x.
@@ -169,7 +201,7 @@ camycpu/
 ├── archive/                   # stage archives and historical docs/csv
 ├── riscv-tests/               # git submodule (official tests)
 ├── src/                       # simulator source
-├── tests/                     # ctest targets (19 files)
+├── tests/                     # ctest targets (20)
 ├── tools/                     # report generator + trace server scripts
 ├── web/                       # dashboard frontend
 ├── tmp/                       # temporary logs and intermediate files
