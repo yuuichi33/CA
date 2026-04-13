@@ -14,6 +14,25 @@ I/D cache, MMIO peripherals, ELF loading, and trace visualization.
 - Stats: cycles/instrs, I/D hit rate, stall/cache_stall/hazard_stall
 - Trace: JSONL + SSE middleware + web dashboard
 
+## Instruction Coverage
+
+- Effective instruction count: 49 (excluding placeholder labels UNKNOWN/SYSTEM)
+
+| Category | Count | Instructions |
+| --- | ---: | --- |
+| R-type arithmetic | 10 | ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND |
+| I-type arithmetic | 9 | ADDI, SLLI, SLTI, SLTIU, XORI, SRLI, SRAI, ORI, ANDI |
+| Load | 5 | LB, LH, LW, LBU, LHU |
+| Store | 3 | SB, SH, SW |
+| Branch | 6 | BEQ, BNE, BLT, BGE, BLTU, BGEU |
+| U-type | 2 | LUI, AUIPC |
+| JAL | 1 | JAL |
+| JALR | 1 | JALR |
+| CSR/privileged | 10 | ECALL, MRET, SRET, SFENCE.VMA, CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI |
+| Fence | 2 | FENCE, FENCE.I |
+
+- Baseline ISA scope: RV32I + CSR/system instructions used by the current privilege/MMU flow.
+
 ## Build
 
 ```bash
@@ -58,6 +77,17 @@ python3 tools/gen_full_test_report.py --run-tag 20260409
 - `docs/figures/full_run_<run-tag>_speedup_bar.png`
 - `docs/figures/full_run_<run-tag>_hitrate_scatter.png`
 - `docs/figures/full_run_<run-tag>_benchmark_cycles_log.png`
+
+## Cache Highlights
+
+- Split I-cache / D-cache with configurable size, line size, associativity and miss penalty.
+- Configurable policies: write-back/write-through and write-allocate/no-write-allocate.
+- Verified correctness: rv32ui p1/p10/no-cache are all 42/42 PASS.
+- Quantified gains (full report):
+  - rv32ui p10 average speedup: 6.47x
+  - p10/p1 average cycle ratio: 1.54x
+  - matmul no-cache/cache: 11.34x
+  - quicksort no-cache/cache: 12.71x
 
 ## Trace Dashboard
 

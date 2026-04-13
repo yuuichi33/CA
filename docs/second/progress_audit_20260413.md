@@ -20,96 +20,145 @@
 
 ## 2. 当前已经实现了什么
 
-### 2.1 CPU 与 ISA
+### 2.1 CPU 微结构
 
 - 五级流水：IF/ID/EX/MEM/WB。
-- 支持 load-use 冒险暂停、前递、分支冲刷。
-- 支持 RV32I 主体指令和系统指令（ECALL/MRET/SRET/CSR/FENCE/SFENCE.VMA）。
-- 指令识别数量：49（不含占位标签 UNKNOWN/SYSTEM）。
+- 数据相关：实现 forwarding 和 load-use 停顿。
+- 控制相关：实现分支冲刷、异常/中断冲刷流水。
+- 统计能力：提供 cycles、instrs、stall、cache_stall、hazard_stall。
 
-### 2.2 内存、Cache、MMU
+### 2.2 ISA 覆盖清单（按类别）
 
-- 物理内存读写（8/16/32 位）+ 越界访问检测。
-- I-cache / D-cache 分离；支持命中率、miss、evict、writeback 统计。
-- 可配置 cache 参数：容量、line size、组相联、写回/写直达、写分配。
-- Sv32 页表走访、ASID、TLB、A/D 位更新、SFENCE.VMA 刷新。
+当前有效指令总数为 49（排除占位项 UNKNOWN、SYSTEM）。
 
-### 2.3 异常、中断、外设
+| 类别 | 条数 | 指令 |
+|---|---:|---|
+| R型算术 | 10 | ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND |
+| I型算术 | 9 | ADDI, SLLI, SLTI, SLTIU, XORI, SRLI, SRAI, ORI, ANDI |
+| Load | 5 | LB, LH, LW, LBU, LHU |
+| Store | 3 | SB, SH, SW |
+| Branch | 6 | BEQ, BNE, BLT, BGE, BLTU, BGEU |
+| U型 | 2 | LUI, AUIPC |
+| JAL | 1 | JAL |
+| JALR | 1 | JALR |
+| CSR/特权 | 10 | ECALL, MRET, SRET, SFENCE.VMA, CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI |
+| Fence | 2 | FENCE, FENCE.I |
 
-- trap 入口、返回、委派：M/S/U 基础路径已经实现。
-- Timer 中断：周期触发或 mtimecmp 触发。
-- UART MMIO：发送、接收 FIFO、IRQ 触发。
-- TOHOST 机制：支持 riscv-tests 风格退出码回传。
+说明：课程要求 30-40 条基础指令，当前实现为 49 条有效指令，已超出最低目标并覆盖系统级运行所需指令。
 
-### 2.4 工具链与可视化
+### 2.3 Cache 实现细节（本次汇报重点）
+
+1. 架构与接口
+   - I-cache 与 D-cache 分离。
+   - 统一由 Pipeline 在 IF/MEM 阶段调用，cache miss 会转化为流水线 stall。
+2. 可配置能力
+   - 支持容量、line size、组相联度、miss penalty。
+   - 支持写策略：write-back / write-through。
+   - 支持写分配策略：write-allocate / no-write-allocate。
+3. 可观测指标
+   - accesses、hits、misses、evictions、writebacks。
+   - 可输出 I-hit/D-hit 与 stall 分解（cache_stall/hazard_stall）。
+4. 与正确性的协同
+   - 对特定直接访存路径做 flush/invalidate 协同处理，避免 cache 与直访路径不一致。
+
+### 2.4 内存与 MMU
+
+- 物理内存读写（8/16/32 位）+ 越界异常检测。
+- MMIO 设备映射机制统一在 Memory 层管理。
+- Sv32 两级页表、TLB、ASID、A/D 位更新、SFENCE.VMA。
+
+### 2.5 异常、中断、外设
+
+- trap 入口与返回：ECALL/MRET/SRET。
+- 中断源：Timer 与 UART。
+- 外设：UART MMIO、Timer MMIO、TOHOST semihosting。
+
+### 2.6 工具链与可视化
 
 - ELF 加载（含 ET_EXEC/ET_DYN 基础处理与部分重定位）。
-- Trace JSON 输出 + SSE + Web 仪表盘。
-- 一键跑全量脚本、CSV 与图表报告生成脚本已就绪。
+- Trace JSON + SSE + Web 可视化。
+- 一键脚本与自动报告，支持复现实验与答辩展示。
 
-## 3. 当前验证结果（用于进度汇报的数据）
+## 3. 当前验证结果（Cache 视角）
+
+### 3.1 正确性
 
 - CTest：19/19 通过。
-- rv32ui：
-  - p1：42/42 通过。
-  - p10：42/42 通过。
-  - no-cache：42/42 通过。
-- benchmark：
-  - matmul cache vs no-cache：277966 vs 3151861 cycles，约 11.34x。
-  - quicksort cache vs no-cache：约 12.71x。
+- rv32ui：p1/p10/no-cache 均 42/42 通过。
 
+### 3.2 Cache 性能关键数字
 
-## 4. 还需要补哪些功能
+- rv32ui p10 平均 speedup：6.47x。
+- p10/p1 平均 cycle 比：1.54x。
+- D-hit 与 speedup 相关系数：0.530。
+- I-hit 与 speedup 相关系数：0.703。
 
-### 4.1 为课程主线建议补齐（优先级高）
+### 3.3 Benchmark（cache on vs no-cache）
 
-1. 中断控制器抽象再前进一步
-   - 当前是 timer/uart 直接驱动 CSR pending 位。
-   - 建议增加一个轻量中断汇聚层，便于后续扩展更多外设。
-2. 异常/中断上下文文档化
-   - 代码已实现 trap 入口与 MRET/SRET，建议补一页“上下文保存恢复流程图”。
-3. MMU 基础增强（可选但加分）
-   - 目前是基础 Sv32；可继续补超级页、更多权限边界测试。
+| 用例 | cache on cycles | no-cache cycles | 加速比 |
+|---|---:|---:|---:|
+| matmul | 277966 | 3151861 | 11.34x |
+| quicksort | 1972901 | 25074548 | 12.71x |
 
-### 4.2 若要跑最小 miniOS（可选）
+### 3.4 可汇报结论
 
-最低可行目标（MVP）建议：
+- Cache 在教学 workload 上带来稳定且显著的收益（6x-12x 量级）。
+- 当前架构中 I-cache 对整体性能更敏感（相关系数更高）。
+- 正确性与性能已经形成闭环：全量通过 + 可量化收益。
 
-1. 启动与串口
-   - 进入 C 内核入口，UART 打印 boot banner。
-2. Trap 框架
-   - ECALL + timer 中断统一入口，能打印 trap 原因。
-3. 时钟滴答
-   - 定时器周期中断，驱动全局 tick 计数。
-4. 最小调度演示
-   - 两个任务轮转（哪怕只是协作式），证明“OS 在你 CPU 上跑起来”。
+## 4. 还需要补哪些功能（按优先级）
 
-说明：以当前硬件抽象，做一个教学版 miniOS 是可行的；直接跑 Linux 仍需更多特性（如更完整特权架构、原子扩展、启动协议与设备模型）。
+### 4.1 Cache 主线优先项
 
-## 5. 建议的后续计划（可直接汇报）
+1. Cache 回归基线自动化
+   - 固化不同策略组合（WB/WT、WA/no-WA）的回归脚本。
+2. Cache 指标门禁
+   - 将 I-hit/D-hit/stall 拆分写入自动检查，避免性能回退。
+3. Cache 可解释性增强
+   - 增加 miss 类型分解（冷启动/冲突/容量）与可视化标签。
 
-### 稳定化与口径统一
+### 4.2 体系结构增强项
 
-- 固化一键复现实验脚本（构建、测试、报告）。
+1. 中断控制器抽象
+   - 从 timer/uart 直连 CSR，演进到统一中断汇聚层。
+2. 异常/中断文档化
+   - 补齐 trap 上下文保存恢复流程图。
+3. MMU 增强
+   - 在基础 Sv32 上补充更多权限边界与页表场景测试。
 
-### 中断与内核接口增强
+### 4.3 miniOS MVP（可选）
 
-- 增加轻量中断汇聚层。
-- 补 trap/返回流程图和关键代码注释。
+1. 启动与串口输出。
+2. trap 框架（ECALL + timer interrupt）。
+3. tick 驱动与最小调度演示。
 
-### miniOS MVP（可选加分）
+说明：当前硬件抽象已具备 miniOS 入口条件；直接跑 Linux 仍需要更多指令扩展与平台能力。
 
-- 完成 UART 控制台 + timer tick + 简单任务切换演示。
-- 输出 miniOS 演示日志与截图，形成闭环材料。
+## 5. 后续计划（Cache 主线）
+
+### 阶段A：Cache 数据与回归固化
+
+- 固化 cache 配置矩阵与一键复现实验脚本。
+- 将关键性能指标写入自动校验，防止无感回退。
+
+### 阶段B：Cache 可解释性增强
+
+- 增加 miss 原因分类统计。
+- 在可视化页中展示 cache 行为与流水线 stall 的对应关系。
+
+### 阶段C：系统能力扩展
+
+- 中断汇聚层 + trap 文档化。
+- miniOS MVP 运行演示。
 
 ## 6. 环境适配说明（汇报可选）
 
-- 当前工程是 CMake + C++17 + Bash 脚本，已适配 Linux 命令链。
-- 已知注意点：
-   - 进程与端口管理建议优先用脚本，避免手动多开导致端口冲突。
-   - 大规模测试时建议使用 --quiet，减少终端 I/O 对性能统计的扰动。
-   - 报告与图表生成均为 Python 标准库实现，不依赖额外图形后端。
+- 当前工程是 CMake + C++17 + Bash，Linux/WSL1 可运行。
+- 建议：
+  - 优先脚本化启动，减少端口与进程冲突。
+  - 大规模性能测试使用 quiet 模式，降低终端 I/O 噪声。
+  - 报告图表生成依赖 Python 标准库，环境依赖较轻。
 
 ## 7. 汇报时可直接使用的总结话术
 
-本项目已完成一台可独立运行的 RV32I 教学模拟器 myCPU。核心上实现了五级流水、I/D Cache、Sv32 基础 MMU、异常与中断机制，以及 UART/Timer 外设接口；在验证上通过 19 项 CTest 与 42 项 rv32ui 全量测试，并在矩阵乘 benchmark 上获得约 11.34 倍加速（含 p1 CSV 去重后的统一口径）。下一阶段将重点做数据质量防回归与中断抽象增强，可选完成一个最小 miniOS 运行演示，以形成“自研 CPU 跑自研 OS”的课程闭环。
+本项目已完成一台可独立运行的 RV32I 教学模拟器 myCPU。实现上覆盖 49 条有效指令，完成五级流水、I/D Cache、Sv32 基础 MMU、异常与中断、UART/Timer 外设。验证上通过 19 项 CTest 与 42 项 rv32ui 三配置全量测试。性能上，cache 在 rv32ui 提供 6.47x 平均加速，在 matmul 与 quicksort 分别达到 11.34x 和 12.71x。下一阶段将以 Cache 回归固化与可解释性增强为主线，并推进中断抽象与 miniOS MVP 演示，形成从 CPU 到 OS 的课程闭环。
