@@ -4,7 +4,7 @@
 
 ## 摘要
 
-- 本项目成功实现了一台 **五级流水线 RISC-V** 处理器模拟器。通过对存储层次结构的深度优化，在 12.7x 的加速比 下保持了 100% 的指令集兼容性。
+- 本项目成功实现了一台 五级流水线 RISC-V 处理器模拟器。通过对存储层次结构的深度优化，在 12.7x 的加速比 下保持了 100% 的指令集兼容性。
 - 完整通过 RISC-V 官方 rv32ui-p 测试集（42/42），涵盖 P1/P10/No-Cache 极端时延组合。
 - 在 10 周期内存惩罚下，4-way 组相联 Cache 使平均执行效率提升了 6.46 倍，在矩阵乘法等密集任务中提升超过 11 倍。
 - 实现了 Cache Miss 的三类分解（Cold/Conflict/Capacity），为后续操作系统级的内存调优提供了硬件级观测数据。
@@ -73,16 +73,21 @@
   - 增加 10 倍的 miss penalty 仅导致执行周期增加了 1.54 倍，说明 Cache 极大地吸收了内存延迟。绝大部分访存都在 Cache 命中，没有穿透到低速内存。
 - 平均执行时长 ms（p1 / p10 / no-cache）: 3000.48 / 3100.14 / 3105.24
 - 访存密集测试平均 speedup: 6.57x；非访存测试平均 speedup: 6.41x
+  - 访存密集与非访存测试都显著受益，且访存密集组收益更高，符合 Cache 对内存访问路径优化的预期。
 - D-hit 与 speedup 相关系数: 0.475
 - I-hit 与 speedup 相关系数: 0.711
+  - `corr(I-hit, speedup) > corr(D-hit, speedup)`，体现当前流水线对取指路径延迟更敏感。
 
 ### Cache Stall 与 Miss 分解（p10）
 
 - 平均 stall 拆分（stall / cache_stall / hazard_stall）: 5.19 / 315.14 / 5.19
+  - `cache_stall` 显著高于 `hazard_stall`，性能瓶颈主要来自存储层次而非数据相关冒险。
 - 平均 I-miss 分解（cold/conflict/capacity）: 21.31 / 3.07 / 0.00
 - 平均 D-miss 分解（cold/conflict/capacity）: 0.31 / 1.83 / 0.00
 - I-miss 占比（cold/conflict/capacity）: 87.4% / 12.6% / 0.0%
 - D-miss 占比（cold/conflict/capacity）: 14.4% / 85.6% / 0.0%
+  - I-miss 以 cold miss 为主，说明启动阶段与代码工作集加载是主要来源。
+  - D-miss 以 conflict miss 为主，提示后续可优先优化映射冲突（例如组相联度与数据布局）。
 
 #### D-conflict miss Top 5
 
@@ -110,6 +115,10 @@
 - gate status: **PASS** (baseline: `wb_wa`)
 - gate issues: 0
 - gate report: `docs/cache_matrix/20260413/gate_report.md`
+
+补充解读：
+- `wb_wa` 在本轮矩阵中保持最优（6.4705x），其余三种 cache 策略接近，说明当前 workload 对写策略差异不敏感。
+- 5 组策略均为 42/42 通过且 gate 为 PASS，说明“功能正确性 + 性能门禁”双目标同时满足。
 
 ### Top 5 speedup（p10）
 
@@ -156,6 +165,7 @@
 - Y轴：speedup 倍数（no-cache cycles / p10 cycles）。
 - 图例：蓝=非访存测试、橙=访存测试、红线=平均 speedup。
 - 说明：呈典型的平滑递减曲线。蓝色（非访存测试）和橙色（访存测试）交织，但橙色柱状图明显集中在头部（左侧高加速区），直观印证了访存指令受 Cache 惠及更深的结论。
+- 数据体现：Cache 并非仅优化少数热点，而是在全体 42 个 rv32ui 用例上提供了系统性收益。
 
 图2：命中率与 speedup 散点图
 
@@ -166,6 +176,7 @@
 - Y轴：speedup 倍数。
 - 图例：蓝点=D-hit，橙点=I-hit。
 - 说明： I-hit（橙点）相较于 D-hit（蓝点）呈现出更陡峭的线性上升趋势，佐证了流水线对指令获取延迟的敏感性。
+- 数据体现：命中率提升与加速比之间存在稳定正相关，支持将命中率作为性能回归门禁指标。
 
 图3：benchmark cycles 对比（对数）
 
@@ -176,6 +187,7 @@
 - Y轴：log10(cycles)。
 - 图例：不同颜色对应不同 benchmark case。
 - 说明：使用对数坐标 (Log Scale) 清晰地展示了 nocache 的百万级周期柱体向开启 Cache 后的十万级柱体产生的“断崖式”下降。
+- 数据体现：在真实 workload（matmul/quicksort）上，Cache 收益保持双位数倍率，说明优化效果可迁移到非微基准场景。
 
 ## 6. Web smoke
 
