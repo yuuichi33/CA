@@ -1,1 +1,1 @@
-{"status":"UNKNOWN","reason":"trace_server not sampled in this run"}
+{"ok": true, "clients": 0, "buffered_lines": 0, "total_lines": 0, "last_cycle": -1, "child_pid": null, "child_running": false, "ts": 1776134762}

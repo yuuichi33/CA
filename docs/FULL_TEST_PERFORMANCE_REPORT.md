@@ -15,6 +15,8 @@
 | benchmark 汇总 | `docs/benchmark/20260414/benchmark_summary.csv` | benchmark 三配置（p1/p10/no-cache）汇总统计 |
 | benchmark 明细 | `docs/benchmark/20260414/benchmark_detail.csv` | benchmark profile 级明细（用于图表） |
 | benchmark 原始 CSV | `docs/benchmark/20260414/benchmark_p1.csv` / `docs/benchmark/20260414/benchmark_p10.csv` / `docs/benchmark/20260414/benchmark_nocache.csv` | 每个 profile 的原始输出 |
+| benchmark cache matrix 汇总 | `docs/cache_matrix/20260413/benchmark_policy_summary.csv` | benchmark 在 5 策略下的汇总统计 |
+| benchmark cache matrix 明细 | `docs/cache_matrix/20260413/benchmark_matrix_detail.csv` | benchmark x cache 策略明细 |
 
 ### 0.2 三组配置的含义
 
@@ -36,13 +38,15 @@
 1. 按 test 名称对 p1/p10/no-cache 三份 CSV 做交集对齐。
 2. 逐项计算 speedup/penalty ratio，并按访存类与非访存类分组。
 3. 从 benchmark_summary/detail.csv 读取 cycles/hit/stall 与 speedup 指标，形成工作负载级对比。
-4. 生成汇总 CSV、三张 PNG 图和本 Markdown 报告。
+4. 从 benchmark_policy_summary.csv 读取 cache 策略矩阵，做跨策略回归分析。
+5. 生成汇总 CSV、三张 PNG 图和本 Markdown 报告。
 
 ## 1. 执行范围
 
 - ctest 全量（20 项）
 - rv32ui 全量（42 项）x 3 组配置：p1 / p10 / no-cache
 - benchmark 组合：hello、matmul（cache/no-cache）、quicksort（cache/no-cache/write-through）
+- benchmark cache matrix：wb_wa / wb_nowa / wt_wa / wt_nowa / nocache
 - Web smoke：trace_server 健康检查与首页可达
 
 ## 2. 正确性结果
@@ -105,6 +109,22 @@
 - gate status: **PASS** (baseline: `wb_wa`)
 - gate issues: 0
 - gate report: `docs/cache_matrix/20260413/gate_report.md`
+
+### Benchmark Cache Matrix 与门禁
+
+| policy | pass/benchmarks | avg_cycles | avg_i_hit_pct | avg_d_hit_pct | avg_speedup_vs_nocache |
+|---|---:|---:|---:|---:|---:|
+| wb_wa | 3/3 | 750342.67 | 99.71 | 98.20 | 11.1590 |
+| wb_nowa | 3/3 | 751638.67 | 99.71 | 93.95 | 11.1440 |
+| wt_wa | 3/3 | 751638.67 | 99.71 | 93.95 | 11.1440 |
+| wt_nowa | 3/3 | 751638.67 | 99.71 | 93.95 | 11.1440 |
+| nocache | 3/3 | 9409309.00 | 0.00 | 0.00 | 1.0000 |
+
+- benchmark matrix summary: `docs/cache_matrix/20260413/benchmark_policy_summary.csv`
+- benchmark matrix detail: `docs/cache_matrix/20260413/benchmark_matrix_detail.csv`
+- benchmark cache gate status: **PASS**
+- benchmark cache gate issues: 0
+- benchmark cache gate report: `docs/cache_matrix/20260413/benchmark_cache_gate_report.md`
 
 ### Top 5 speedup（p10）
 
@@ -178,11 +198,16 @@
 
 ## 6. Web smoke
 
+- 采样状态：**PASS**
+- 状态说明：sampled
 - 健康检查响应：
 
-{"status":"UNKNOWN","reason":"trace_server not sampled in this run"}
+{"ok": true, "clients": 0, "buffered_lines": 0, "total_lines": 0, "last_cycle": -1, "child_pid": null, "child_running": false, "ts": 1776134762}
 
-- 首页首行：<!doctype html>（HTTP 200）
+- 首页首行：<!doctype html>
+- web_health 文件：`tmp/full_run_20260413/web_health.json`
+- web_index_head 文件：`tmp/full_run_20260413/web_index_head.txt`
+- web_smoke_status 文件：`tmp/full_run_20260413/web_smoke_status.json`
 
 ## 7. 磁盘占用（清理前）
 
@@ -216,9 +241,14 @@
 - [docs/figures/full_run_20260414_benchmark_cycles_log.png](figures/full_run_20260414_benchmark_cycles_log.png)
 - [docs/cache_matrix/20260413/policy_summary.csv](cache_matrix/20260413/policy_summary.csv)
 - [docs/cache_matrix/20260413/matrix_detail.csv](cache_matrix/20260413/matrix_detail.csv)
+- [docs/cache_matrix/20260413/benchmark_policy_summary.csv](cache_matrix/20260413/benchmark_policy_summary.csv)
+- [docs/cache_matrix/20260413/benchmark_matrix_detail.csv](cache_matrix/20260413/benchmark_matrix_detail.csv)
 - [docs/cache_matrix/20260413/gate_checks.csv](cache_matrix/20260413/gate_checks.csv)
 - [docs/cache_matrix/20260413/gate_result.json](cache_matrix/20260413/gate_result.json)
 - [docs/cache_matrix/20260413/gate_report.md](cache_matrix/20260413/gate_report.md)
+- [docs/cache_matrix/20260413/benchmark_cache_gate_checks.csv](cache_matrix/20260413/benchmark_cache_gate_checks.csv)
+- [docs/cache_matrix/20260413/benchmark_cache_gate_result.json](cache_matrix/20260413/benchmark_cache_gate_result.json)
+- [docs/cache_matrix/20260413/benchmark_cache_gate_report.md](cache_matrix/20260413/benchmark_cache_gate_report.md)
 - [docs/benchmark/20260414/benchmark_p1.csv](benchmark/20260414/benchmark_p1.csv)
 - [docs/benchmark/20260414/benchmark_p10.csv](benchmark/20260414/benchmark_p10.csv)
 - [docs/benchmark/20260414/benchmark_nocache.csv](benchmark/20260414/benchmark_nocache.csv)
@@ -227,6 +257,9 @@
 - [docs/benchmark/20260414/benchmark_gate_checks.csv](benchmark/20260414/benchmark_gate_checks.csv)
 - [docs/benchmark/20260414/benchmark_gate_result.json](benchmark/20260414/benchmark_gate_result.json)
 - [docs/benchmark/20260414/benchmark_gate_report.md](benchmark/20260414/benchmark_gate_report.md)
+- [tmp/full_run_20260413/web_health.json](../tmp/full_run_20260413/web_health.json)
+- [tmp/full_run_20260413/web_index_head.txt](../tmp/full_run_20260413/web_index_head.txt)
+- [tmp/full_run_20260413/web_smoke_status.json](../tmp/full_run_20260413/web_smoke_status.json)
 - [tmp/full_run_20260413/ctest_full.log](../tmp/full_run_20260413/ctest_full.log)
 
 ## 9. 文件整理与清理建议

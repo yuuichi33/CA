@@ -26,6 +26,8 @@
   - `docs/full_test_summary_20260414.csv`
 - Cache 门禁：`docs/cache_matrix/20260413/`
 - Benchmark 数据与门禁：`docs/benchmark/20260414/`
+- Benchmark cache matrix 与门禁：`docs/cache_matrix/20260413/benchmark_policy_summary.csv` + `benchmark_cache_gate_result.json`
+- Web smoke 重采样：`tmp/full_run_20260413/web_health.json` + `web_index_head.txt`
 - 汇报资料：`docs/second/`
 
 ## 3. 历史归档入口
@@ -34,6 +36,10 @@
 - `archive/docs-history/csv-legacy/`
 - `archive/docs-history/figures/`
 - `archive/stage-01-rv32ui-collect/` ... `archive/stage-05-legacy-scripts/`
+
+已迁移快照：
+- `archive/docs-history/csv-legacy/full_test_summary_20260413.csv`
+- `archive/docs-history/figures/full_run_20260413_*.png`
 
 ## 4. 快速导航建议
 

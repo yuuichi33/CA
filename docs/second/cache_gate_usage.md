@@ -16,6 +16,7 @@ cd /home/ys/camycpu
 4. check_cache_gate.py（判定 PASS/WARN/FAIL）
 5. run_benchmark_profiles.sh（benchmark 三配置跑数）
 6. check_benchmark_gate.py（benchmark PASS/WARN/FAIL）
+7. run_benchmark_cache_matrix.sh + check_benchmark_cache_gate.py（benchmark cache matrix 门禁）
 
 退出码策略：
 - PASS -> 0
@@ -34,9 +35,10 @@ cd /home/ys/camycpu
 
 ```bash
 ./tools/run_cache_gate_local.sh \
-  --skip-build --skip-ctest --skip-matrix --skip-benchmark \
+  --skip-build --skip-ctest --skip-matrix --skip-benchmark --skip-benchmark-matrix \
   --summary docs/cache_matrix/20260413/policy_summary.csv \
-  --bench-summary docs/benchmark/20260414/benchmark_summary.csv
+  --bench-summary docs/benchmark/20260414/benchmark_summary.csv \
+  --bench-matrix-summary docs/cache_matrix/20260413/benchmark_policy_summary.csv
 ```
 
 ## 3. 阈值定义
@@ -95,6 +97,29 @@ python3 tools/check_benchmark_gate.py \
   --output-prefix docs/benchmark/20260414/benchmark_gate
 ```
 
+### 4.4 benchmark cache matrix gate 阈值
+
+| 场景 | fail-cycle-regress-pct | warn-cycle-regress-pct | fail-speedup-drop-pct | warn-speedup-drop-pct | fail-dhit-drop-pct | warn-dhit-drop-pct |
+|---|---:|---:|---:|---:|---:|---:|
+| 本地开发（宽松） | 12.0 | 6.0 | 12.0 | 6.0 | 10.0 | 6.0 |
+| 预提交（中等） | 10.0 | 5.0 | 10.0 | 5.0 | 10.0 | 6.0 |
+| CI正式门禁（严格） | 8.0 | 4.0 | 8.0 | 4.0 | 8.0 | 5.0 |
+
+命令示例：
+
+```bash
+python3 tools/check_benchmark_cache_gate.py \
+  --summary docs/cache_matrix/20260413/benchmark_policy_summary.csv \
+  --baseline wb_wa \
+  --fail-cycle-regress-pct 10 \
+  --warn-cycle-regress-pct 5 \
+  --fail-speedup-drop-pct 10 \
+  --warn-speedup-drop-pct 5 \
+  --fail-dhit-drop-pct 10 \
+  --warn-dhit-drop-pct 6 \
+  --output-prefix docs/cache_matrix/20260413/benchmark_cache_gate
+```
+
 ## 5. CI 示例（GitHub Actions）
 
 仓库已提供 workflow 模板：
@@ -127,6 +152,11 @@ python3 tools/check_benchmark_gate.py \
 - `docs/cache_matrix/<run-tag>/gate_checks.csv`
 - `docs/cache_matrix/<run-tag>/gate_result.json`
 - `docs/cache_matrix/<run-tag>/gate_report.md`
+- `docs/cache_matrix/<run-tag>/benchmark_policy_summary.csv`
+- `docs/cache_matrix/<run-tag>/benchmark_matrix_detail.csv`
+- `docs/cache_matrix/<run-tag>/benchmark_cache_gate_checks.csv`
+- `docs/cache_matrix/<run-tag>/benchmark_cache_gate_result.json`
+- `docs/cache_matrix/<run-tag>/benchmark_cache_gate_report.md`
 - `docs/benchmark/<run-tag>/benchmark_p1.csv`
 - `docs/benchmark/<run-tag>/benchmark_p10.csv`
 - `docs/benchmark/<run-tag>/benchmark_nocache.csv`

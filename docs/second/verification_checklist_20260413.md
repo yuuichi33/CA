@@ -39,6 +39,17 @@
 - [ ] benchmark gate 判定通过
   - 命令：`python3 tools/check_benchmark_gate.py --summary docs/benchmark/<tag>/benchmark_summary.csv --output-prefix docs/benchmark/<tag>/benchmark_gate`
   - 期望：`benchmark_gate_result.json` 中 `status=PASS`
+- [ ] benchmark cache matrix 输出完整
+  - 命令：`bash tools/run_benchmark_cache_matrix.sh --run-tag <tag> --cycles 50000000 --out-dir docs/cache_matrix/<tag>`
+  - 期望：`benchmark_policy_summary.csv` 与 `benchmark_matrix_detail.csv` 存在
+- [ ] benchmark cache gate 判定通过
+  - 命令：`python3 tools/check_benchmark_cache_gate.py --summary docs/cache_matrix/<tag>/benchmark_policy_summary.csv --baseline wb_wa --output-prefix docs/cache_matrix/<tag>/benchmark_cache_gate`
+  - 期望：`benchmark_cache_gate_result.json` 中 `status=PASS`
+- [ ] benchmark 关键数值与基线一致（20260413/20260414）
+  - `hello`：p10/no-cache cycles = `161/1518`，speedup = `9.43x`
+  - `matmul`：p10/no-cache cycles = `277966/3151861`，speedup = `11.34x`
+  - `quicksort_stress`：p10/no-cache cycles = `1972901/25074548`，speedup = `12.71x`
+  - benchmark matrix `wb_wa`：avg_cycles = `750342.67`，avg_d_hit_pct = `98.20`，avg_speedup_vs_nocache = `11.1590`
 
 ## 4. 报告与图表
 

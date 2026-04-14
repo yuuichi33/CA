@@ -1,4 +1,4 @@
-# Archive Manifest (updated 2026-04-13)
+# Archive Manifest (updated 2026-04-14)
 
 ## Purpose
 Archive intermediate and stage outputs before final cleanup and full re-run.
@@ -39,6 +39,11 @@ This archive lives at repository root (`archive/`) and no longer keeps an extra 
   - Source path: docs/figures/full_run_20260409_*.png and docs/full_test_summary_20260409.csv
   - Files moved to: docs-history/figures/ and docs-history/csv-legacy/
   - Purpose: keep `docs/` reserved for current run-tag artifacts (latest: 20260414)
+
+- Docs history figures and summaries (2026-04-14 migration)
+  - Source path: docs/figures/full_run_20260413_*.png and docs/full_test_summary_20260413.csv
+  - Files moved to: docs-history/figures/ and docs-history/csv-legacy/
+  - Purpose: keep `docs/` focused on latest run-tag outputs while preserving previous snapshots
 
 ## Notes
 - This archive stores stage provenance only; final deliverables are kept in docs/ root and docs/figures/.

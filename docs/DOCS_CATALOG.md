@@ -65,6 +65,16 @@ Current baseline folder: `cache_matrix/20260413/`
 - `gate_checks.csv`
 - `gate_result.json`
 - `gate_report.md`
+- `benchmark_wb_wa.csv`
+- `benchmark_wb_nowa.csv`
+- `benchmark_wt_wa.csv`
+- `benchmark_wt_nowa.csv`
+- `benchmark_nocache.csv`
+- `benchmark_policy_summary.csv`
+- `benchmark_matrix_detail.csv`
+- `benchmark_cache_gate_checks.csv`
+- `benchmark_cache_gate_result.json`
+- `benchmark_cache_gate_report.md`
 
 ## 2. Historical Artifacts (moved to archive)
 
@@ -80,19 +90,23 @@ Current baseline folder: `cache_matrix/20260413/`
 - `archive/docs-history/csv-legacy/rv32ui_perf_p10.csv`
 - `archive/docs-history/csv-legacy/rv32ui_perf_nocache.csv`
 - `archive/docs-history/csv-legacy/full_test_summary_20260409.csv`
+- `archive/docs-history/csv-legacy/full_test_summary_20260413.csv`
 
 ### 2.3 Historical figures
 
 - `archive/docs-history/figures/full_run_20260409_speedup_bar.png`
 - `archive/docs-history/figures/full_run_20260409_hitrate_scatter.png`
 - `archive/docs-history/figures/full_run_20260409_benchmark_cycles_log.png`
+- `archive/docs-history/figures/full_run_20260413_speedup_bar.png`
+- `archive/docs-history/figures/full_run_20260413_hitrate_scatter.png`
+- `archive/docs-history/figures/full_run_20260413_benchmark_cycles_log.png`
 
 ## 3. Version Snapshot Map
 
 | Version tag | Status | Main summary | Figure set | Cache matrix |
 |---|---|---|---|---|
 | `20260414` | current | `docs/full_test_summary_20260414.csv` | `docs/figures/full_run_20260414_*.png` | `docs/cache_matrix/20260413/` |
-| `20260413` | recent | `docs/full_test_summary_20260413.csv` | `docs/figures/full_run_20260413_*.png` | `docs/cache_matrix/20260413/` |
+| `20260413` | historical (summary/figures archived) | `archive/docs-history/csv-legacy/full_test_summary_20260413.csv` | `archive/docs-history/figures/full_run_20260413_*.png` | `docs/cache_matrix/20260413/` |
 | `20260409` | historical | `archive/docs-history/csv-legacy/full_test_summary_20260409.csv` | `archive/docs-history/figures/full_run_20260409_*.png` | stage baseline logs in `archive/stage-04-full-run-baseline/` |
 
 ## 4. Stage Archive (root archive)

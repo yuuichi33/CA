@@ -115,11 +115,21 @@
 | nocache | 42/42 | 4633.83 | 0.00% | 0.00% | 1.0000x |
 
 - 门禁脚本输出：PASS（baseline=wb_wa，issues=0）。
+- benchmark cache matrix（20260413）已完成：5 策略 x 3 benchmark，benchmark cache gate 为 PASS（issues=0）。
 - miss 分解（p10/wt_nowa）：
    - I-miss 占比：cold 87.4% / conflict 12.6% / capacity 0.0%
    - D-miss 占比：cold 14.4% / conflict 85.6% / capacity 0.0%
 
-### 3.5 可汇报结论
+### 3.5 Web smoke 重采样
+
+- 采样脚本：`tools/sample_web_smoke.sh`
+- 最新结果：PASS
+   - `tmp/full_run_20260413/web_health.json`
+   - `tmp/full_run_20260413/web_index_head.txt`
+   - `tmp/full_run_20260413/web_smoke_status.json`
+- 说明：采样失败按 WARN 记录，不阻断报告生成。
+
+### 3.6 可汇报结论
 
 - Cache 在教学 workload 上带来稳定且显著的收益（6x-12x 量级）。
 - 当前架构中 I-cache 对整体性能更敏感（相关系数更高）。
@@ -135,10 +145,13 @@
 2. Cache 指标门禁（已完成）
    - 已新增 `tools/check_cache_gate.py`，读取 `policy_summary.csv` 输出 PASS/WARN/FAIL。
    - 同步产出 `gate_checks.csv`、`gate_result.json`、`gate_report.md`，可直接接入 CI。
-3. Cache 可解释性增强（已完成）
+3. Benchmark Cache Matrix 门禁（已完成）
+   - 已新增 `tools/run_benchmark_cache_matrix.sh` 与 `tools/check_benchmark_cache_gate.py`。
+   - 已在 `docs/cache_matrix/20260413/` 生成 benchmark 策略矩阵与 gate 产物。
+4. Cache 可解释性增强（已完成）
    - 已在 cache 核心实现 miss 分解：cold/conflict/capacity。
    - 指标已打通到 Pipeline 统计、Trace JSON、`test_all.sh` CSV 与最终性能行。
-4. Cache 专项验证（已完成）
+5. Cache 专项验证（已完成）
    - 新增 `tests/test_cache_miss_types.cpp` 并接入 CTest，覆盖冲突/容量 miss 分类回归。
 
 ### 4.2 门禁执行链路（已落地）

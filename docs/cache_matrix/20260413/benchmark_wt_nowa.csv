@@ -1,0 +1,4 @@
+benchmark,policy,ms,rc,cycles,instrs,i_cache_hit_pct,d_cache_hit_pct,stall,cache_stall,hazard_stall,i_cold_miss,i_conflict_miss,i_capacity_miss,d_cold_miss,d_conflict_miss,d_capacity_miss,checksum,log_path
+hello,wt_nowa,63,0,161,113,99.15,95.24,21,24,21,1,0,0,1,0,0,,tmp/benchmark_matrix_20260413/hello_wt_nowa.log
+matmul,wt_nowa,190,0,278554,230400,99.98,89.24,165,1116,165,43,0,0,51,1038,0,,tmp/benchmark_matrix_20260413/matmul_wt_nowa.log
+quicksort_stress,wt_nowa,1330,0,1976201,1724935,100.00,97.36,56,5472,56,19,0,0,267,8200,492,e48d8e25,tmp/benchmark_matrix_20260413/quicksort_stress_wt_nowa.log

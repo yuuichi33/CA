@@ -47,6 +47,7 @@ cmake --build build -j
 - `p1`: cache enabled, `--cache-penalty 1`
 - `p10`: cache enabled, `--cache-penalty 10`
 - `no-cache`: cache disabled with `--no-cache --cache-penalty 10`
+- cache 策略矩阵：`wb_wa` / `wb_nowa` / `wt_wa` / `wt_nowa` / `nocache`
 
 ### Run steps
 
@@ -65,9 +66,23 @@ python3 tools/check_benchmark_gate.py \
   --summary docs/benchmark/<run-tag>/benchmark_summary.csv \
   --output-prefix docs/benchmark/<run-tag>/benchmark_gate
 
+# 3b) benchmark cache-matrix + benchmark cache-gate
+bash tools/run_benchmark_cache_matrix.sh --run-tag <run-tag> --cycles 50000000 \
+  --out-dir docs/cache_matrix/<run-tag>
+python3 tools/check_benchmark_cache_gate.py \
+  --summary docs/cache_matrix/<run-tag>/benchmark_policy_summary.csv \
+  --baseline wb_wa \
+  --output-prefix docs/cache_matrix/<run-tag>/benchmark_cache_gate
+
+# 3c) web smoke sampling (trace_server)
+bash tools/sample_web_smoke.sh --run-tag <run-tag>
+
 # 4) generate report + charts
 python3 tools/gen_full_test_report.py \
   --run-tag <run-tag> \
+  --run-dir tmp/full_run_<run-tag> \
+  --cache-matrix-dir docs/cache_matrix/<run-tag> \
+  --gate-prefix docs/cache_matrix/<run-tag>/gate \
   --benchmark-dir docs/benchmark/<run-tag> \
   --benchmark-gate-prefix docs/benchmark/<run-tag>/benchmark_gate
 ```
@@ -79,8 +94,13 @@ python3 tools/gen_full_test_report.py \
 - `docs/figures/full_run_<run-tag>_speedup_bar.png`
 - `docs/figures/full_run_<run-tag>_hitrate_scatter.png`
 - `docs/figures/full_run_<run-tag>_benchmark_cycles_log.png`
+- `docs/cache_matrix/<run-tag>/benchmark_policy_summary.csv`
+- `docs/cache_matrix/<run-tag>/benchmark_matrix_detail.csv`
+- `docs/cache_matrix/<run-tag>/benchmark_cache_gate_result.json`
 - `docs/benchmark/<run-tag>/benchmark_summary.csv`
 - `docs/benchmark/<run-tag>/benchmark_gate_result.json`
+- `tmp/full_run_<run-tag>/web_health.json`
+- `tmp/full_run_<run-tag>/web_index_head.txt`
 
 ## Latest Test Results (2026-04-14)
 
@@ -93,6 +113,8 @@ python3 tools/gen_full_test_report.py \
 | rv32ui p10 | 42/42 PASS | `docs/rv32ui_perf_full_p10.csv` |
 | rv32ui no-cache | 42/42 PASS | `docs/rv32ui_perf_full_nocache.csv` |
 | benchmark gate | PASS (issues=0) | `docs/benchmark/20260414/benchmark_gate_result.json` |
+| benchmark cache gate | PASS (issues=0) | `docs/cache_matrix/20260413/benchmark_cache_gate_result.json` |
+| web smoke | PASS | `tmp/full_run_20260413/web_smoke_status.json` |
 
 ### Benchmark Snapshot
 
@@ -105,7 +127,7 @@ python3 tools/gen_full_test_report.py \
 - Summary source: `docs/benchmark/20260414/benchmark_summary.csv`
 - Gate report: `docs/benchmark/20260414/benchmark_gate_report.md`
 
-### Cache Matrix + Gate
+### rv32ui Cache Matrix + Gate
 
 | Policy | pass/tests | avg_cycles | avg_i_hit_pct | avg_d_hit_pct | avg_speedup_vs_nocache |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -118,17 +140,31 @@ python3 tools/gen_full_test_report.py \
 - Gate status: PASS (baseline `wb_wa`, issues 0)
 - Artifacts: `docs/cache_matrix/20260413/policy_summary.csv`, `docs/cache_matrix/20260413/gate_result.json`, `docs/cache_matrix/20260413/gate_report.md`
 
+### Benchmark Cache Matrix + Gate
+
+| Policy | pass/benchmarks | avg_cycles | avg_i_hit_pct | avg_d_hit_pct | avg_speedup_vs_nocache |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| wb_wa | 3/3 | 750342.67 | 99.71 | 98.20 | 11.1590 |
+| wb_nowa | 3/3 | 751638.67 | 99.71 | 93.95 | 11.1440 |
+| wt_wa | 3/3 | 751638.67 | 99.71 | 93.95 | 11.1440 |
+| wt_nowa | 3/3 | 751638.67 | 99.71 | 93.95 | 11.1440 |
+| nocache | 3/3 | 9409309.00 | 0.00 | 0.00 | 1.0000 |
+
+- Gate status: PASS (baseline `wb_wa`, issues 0)
+- Artifacts: `docs/cache_matrix/20260413/benchmark_policy_summary.csv`, `docs/cache_matrix/20260413/benchmark_cache_gate_result.json`, `docs/cache_matrix/20260413/benchmark_cache_gate_report.md`
+
 ### Local Gate (Blocking)
 
 ```bash
-# full pipeline: build + ctest + cache matrix + cache gate + benchmark gate
+# full pipeline: build + ctest + cache matrix + cache gate + benchmark gate + benchmark cache gate
 ./tools/run_cache_gate_local.sh --run-tag 20260414
 
 # reuse existing summaries for quick gate check
 ./tools/run_cache_gate_local.sh \
-  --skip-build --skip-ctest --skip-matrix --skip-benchmark \
+  --skip-build --skip-ctest --skip-matrix --skip-benchmark --skip-benchmark-matrix \
   --summary docs/cache_matrix/20260413/policy_summary.csv \
-  --bench-summary docs/benchmark/20260414/benchmark_summary.csv
+  --bench-summary docs/benchmark/20260414/benchmark_summary.csv \
+  --bench-matrix-summary docs/cache_matrix/20260413/benchmark_policy_summary.csv
 ```
 
 ## Cache Regression Matrix And Gate
@@ -145,8 +181,8 @@ python3 tools/check_cache_gate.py \
 
 # 3) Regenerate full report with matrix/gate sections
 python3 tools/gen_full_test_report.py \
-  --run-tag 20260413 \
-  --run-dir tmp/full_run_20260409 \
+  --run-tag 20260414 \
+  --run-dir tmp/full_run_20260413 \
   --cache-matrix-dir docs/cache_matrix/20260413 \
   --gate-prefix docs/cache_matrix/20260413/gate \
   --benchmark-dir docs/benchmark/20260414 \
@@ -156,7 +192,7 @@ python3 tools/gen_full_test_report.py \
 ### CI Entry (ready-to-enable)
 
 - Workflow file: `.github/workflows/cache-gate.yml`
-- Scope: cache matrix gate + benchmark gate (both can block with non-zero exit)
+- Scope: cache matrix gate + benchmark gate + benchmark cache gate (all support non-zero blocking)
 - Current trigger: `workflow_dispatch` (manual)
 - To enable automatic blocking on PR/push later, uncomment `push/pull_request` triggers in the workflow file.
 
@@ -167,6 +203,11 @@ python3 tools/gen_full_test_report.py \
 - `docs/cache_matrix/<run-tag>/gate_checks.csv`
 - `docs/cache_matrix/<run-tag>/gate_result.json`
 - `docs/cache_matrix/<run-tag>/gate_report.md`
+- `docs/cache_matrix/<run-tag>/benchmark_policy_summary.csv`
+- `docs/cache_matrix/<run-tag>/benchmark_matrix_detail.csv`
+- `docs/cache_matrix/<run-tag>/benchmark_cache_gate_checks.csv`
+- `docs/cache_matrix/<run-tag>/benchmark_cache_gate_result.json`
+- `docs/cache_matrix/<run-tag>/benchmark_cache_gate_report.md`
 - `docs/benchmark/<run-tag>/benchmark_p1.csv`
 - `docs/benchmark/<run-tag>/benchmark_p10.csv`
 - `docs/benchmark/<run-tag>/benchmark_nocache.csv`
@@ -187,11 +228,21 @@ python3 tools/gen_full_test_report.py \
 - Latest matrix (20260413): all 5 profiles are 42/42 PASS.
 - Latest gate (20260413): PASS with baseline `wb_wa` and 0 issues.
 - Latest benchmark gate (20260414): PASS with 0 issues.
+- Latest benchmark cache gate (20260413): PASS with 0 issues.
+- Benchmark snapshot (p10 vs no-cache, 20260413):
+  - hello cycles: 161 vs 1518 (9.43x)
+  - matmul cycles: 277966 vs 3151861 (11.34x)
+  - quicksort_stress cycles: 1972901 vs 25074548 (12.71x)
+- Benchmark cache matrix highlight (20260413):
+  - wb_wa: avg_cycles 750342.67, avg_d_hit_pct 98.20, avg_speedup_vs_nocache 11.1590x
+  - nocache: avg_cycles 9409309.00, avg_d_hit_pct 0.00, avg_speedup_vs_nocache 1.0000x
+- Latest web smoke sample (20260413): PASS (`web_health.json` + `web_index_head.txt`).
 - Latest matrix winner: `wb_wa` avg speedup vs no-cache = 6.4705x.
 - Verified correctness: rv32ui p1/p10/no-cache are all 42/42 PASS.
 - Quantified gains (full report):
   - rv32ui p10 average speedup: 6.46x
   - p10/p1 average cycle ratio: 1.54x
+  - benchmark p10 average speedup: 11.16x
   - matmul no-cache/cache: 11.34x
   - quicksort no-cache/cache: 12.71x
 
@@ -206,12 +257,16 @@ chmod +x tools/run_trace_demo.sh
 
 # optional: force a fixed port
 TRACE_PORT=8080 ./tools/run_trace_demo.sh benchmarks/hello.elf 200
+
+# web smoke resampling for report
+./tools/sample_web_smoke.sh --run-tag 20260413 --run-dir tmp/full_run_20260413
 ```
 
 - The launcher prints the final URL to open in browser.
 - If port 8080 is occupied, the launcher auto-falls back (for example 18080/18081).
 - The page auto-connects to SSE on load; Connect SSE is still available for manual reconnect.
 - Health check should use the printed port, for example: `curl -s http://127.0.0.1:18080/health`
+- For report refresh, run `tools/sample_web_smoke.sh` first so `web_health.json` and `web_index_head.txt` are real samples.
 - See also: `web/README.md`
 
 ## Repository Layout
@@ -240,6 +295,9 @@ camycpu/
 - `tools/run_cache_gate_local.sh`: one-command local gate pipeline (non-zero exit blocks)
 - `tools/run_benchmark_profiles.sh`: benchmark p1/p10/no-cache batch runner and CSV emitter
 - `tools/check_benchmark_gate.py`: benchmark PASS/WARN/FAIL gate checker
+- `tools/run_benchmark_cache_matrix.sh`: benchmark cache strategy matrix runner
+- `tools/check_benchmark_cache_gate.py`: benchmark cache matrix PASS/WARN/FAIL gate checker
+- `tools/sample_web_smoke.sh`: trace_server web smoke sampler for report inputs
 - `docs/FULL_TEST_PERFORMANCE_REPORT.md`: consolidated full-run report
 - `docs/rv32ui_perf_full_p1.csv`: rv32ui profile p1 dataset
 - `docs/rv32ui_perf_full_p10.csv`: rv32ui profile p10 dataset
@@ -259,6 +317,8 @@ camycpu/
   - `cache_matrix/20260413/`
   - `benchmark/20260414/`
   - `second/`
+- `archive/docs-history/csv-legacy/full_test_summary_20260413.csv` keeps the previous full summary snapshot.
+- `archive/docs-history/figures/full_run_20260413_*.png` keeps the previous figure snapshot.
 - `archive/docs-history/reports/` keeps historical markdown reports.
 - `archive/docs-history/csv-legacy/` keeps historical csv datasets.
 - `archive/docs-history/figures/` keeps historical figure snapshots.

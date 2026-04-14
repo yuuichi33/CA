@@ -7,6 +7,8 @@
 - rv32ui 三配置
 - cache matrix + gate
 - benchmark 三配置 + benchmark gate
+- benchmark cache matrix + benchmark cache gate
+- web smoke 重采样（trace_server /health + 首页首行）
 - FULL 报告一致性
 
 ## 2. 检测结论
@@ -65,6 +67,31 @@
   - `docs/benchmark/20260414/benchmark_summary.csv`
   - `docs/benchmark/20260414/benchmark_gate_result.json`
   - `docs/benchmark/20260414/benchmark_gate_report.md`
+
+### 3.6 benchmark cache matrix（20260413）
+
+| policy | pass/benchmarks | avg_cycles | avg_i_hit_pct | avg_d_hit_pct | avg_speedup_vs_nocache |
+|---|---:|---:|---:|---:|---:|
+| wb_wa | 3/3 | 750342.67 | 99.71 | 98.20 | 11.1590 |
+| wb_nowa | 3/3 | 751638.67 | 99.71 | 93.95 | 11.1440 |
+| wt_wa | 3/3 | 751638.67 | 99.71 | 93.95 | 11.1440 |
+| wt_nowa | 3/3 | 751638.67 | 99.71 | 93.95 | 11.1440 |
+| nocache | 3/3 | 9409309.00 | 0.00 | 0.00 | 1.0000 |
+
+- benchmark cache gate：PASS（issues=0）
+- 结果文件：
+  - `docs/cache_matrix/20260413/benchmark_policy_summary.csv`
+  - `docs/cache_matrix/20260413/benchmark_cache_gate_result.json`
+  - `docs/cache_matrix/20260413/benchmark_cache_gate_report.md`
+
+### 3.7 Web smoke 重采样
+
+- 状态：PASS
+- 采样文件：
+  - `tmp/full_run_20260413/web_health.json`
+  - `tmp/full_run_20260413/web_index_head.txt`
+  - `tmp/full_run_20260413/web_smoke_status.json`
+- 关键结果：`web_health.json` 返回 `ok=true`，首页首行为 `<!doctype html>`。
 
 ## 4. 报告一致性核对
 

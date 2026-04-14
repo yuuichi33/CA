@@ -1,0 +1,16 @@
+policy,benchmark,rc,cycles,instrs,i_cache_hit_pct,d_cache_hit_pct,stall,cache_stall,hazard_stall,i_cold_miss,i_conflict_miss,i_capacity_miss,d_cold_miss,d_conflict_miss,d_capacity_miss,speedup_vs_nocache,checksum,log_path
+wb_wa,hello,0,161,113,99.15,95.24,21,24,21,1,0,0,1,0,0,9.428571,,tmp/benchmark_matrix_20260413/hello_wb_wa.log
+wb_wa,matmul,0,277966,230400,99.98,99.50,165,528,165,43,0,0,51,0,0,11.339016,,tmp/benchmark_matrix_20260413/matmul_wb_wa.log
+wb_wa,quicksort_stress,0,1972901,1724935,100.00,99.86,56,2172,56,19,0,0,267,27,182,12.709481,e48d8e25,tmp/benchmark_matrix_20260413/quicksort_stress_wb_wa.log
+wb_nowa,hello,0,161,113,99.15,95.24,21,24,21,1,0,0,1,0,0,9.428571,,tmp/benchmark_matrix_20260413/hello_wb_nowa.log
+wb_nowa,matmul,0,278554,230400,99.98,89.24,165,1116,165,43,0,0,51,1038,0,11.315081,,tmp/benchmark_matrix_20260413/matmul_wb_nowa.log
+wb_nowa,quicksort_stress,0,1976201,1724935,100.00,97.36,56,5472,56,19,0,0,267,8200,492,12.688258,e48d8e25,tmp/benchmark_matrix_20260413/quicksort_stress_wb_nowa.log
+wt_wa,hello,0,161,113,99.15,95.24,21,24,21,1,0,0,1,0,0,9.428571,,tmp/benchmark_matrix_20260413/hello_wt_wa.log
+wt_wa,matmul,0,278554,230400,99.98,89.24,165,1116,165,43,0,0,51,1038,0,11.315081,,tmp/benchmark_matrix_20260413/matmul_wt_wa.log
+wt_wa,quicksort_stress,0,1976201,1724935,100.00,97.36,56,5472,56,19,0,0,267,8200,492,12.688258,e48d8e25,tmp/benchmark_matrix_20260413/quicksort_stress_wt_wa.log
+wt_nowa,hello,0,161,113,99.15,95.24,21,24,21,1,0,0,1,0,0,9.428571,,tmp/benchmark_matrix_20260413/hello_wt_nowa.log
+wt_nowa,matmul,0,278554,230400,99.98,89.24,165,1116,165,43,0,0,51,1038,0,11.315081,,tmp/benchmark_matrix_20260413/matmul_wt_nowa.log
+wt_nowa,quicksort_stress,0,1976201,1724935,100.00,97.36,56,5472,56,19,0,0,267,8200,492,12.688258,e48d8e25,tmp/benchmark_matrix_20260413/quicksort_stress_wt_nowa.log
+nocache,hello,0,1518,113,0.00,0.00,21,0,21,0,0,0,0,0,0,1.000000,,tmp/benchmark_matrix_20260413/hello_nocache.log
+nocache,matmul,0,3151861,230400,0.00,0.00,165,0,165,0,0,0,0,0,0,1.000000,,tmp/benchmark_matrix_20260413/matmul_nocache.log
+nocache,quicksort_stress,0,25074548,1724935,0.00,0.00,56,0,56,0,0,0,0,0,0,1.000000,e48d8e25,tmp/benchmark_matrix_20260413/quicksort_stress_nocache.log

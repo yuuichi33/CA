@@ -140,6 +140,8 @@ def build_paths(run_tag, run_dir, cache_matrix_dir, gate_prefix, benchmark_dir, 
         "ctest_log": os.path.join(resolved_run_dir, "ctest_full.log"),
         "bench_rc": os.path.join(resolved_run_dir, "benchmark_rcs.csv"),
         "web_health": os.path.join(resolved_run_dir, "web_health.json"),
+        "web_index_head": os.path.join(resolved_run_dir, "web_index_head.txt"),
+        "web_smoke_status": os.path.join(resolved_run_dir, "web_smoke_status.json"),
         "disk_core": os.path.join(resolved_run_dir, "disk_usage_core.txt"),
         "disk_top": os.path.join(resolved_run_dir, "disk_usage_top10.txt"),
         "fig_dir": fig_dir,
@@ -150,9 +152,14 @@ def build_paths(run_tag, run_dir, cache_matrix_dir, gate_prefix, benchmark_dir, 
         "bench_fig": os.path.join(fig_dir, f"full_run_{run_tag}_benchmark_cycles_log.png"),
         "matrix_summary": os.path.join(resolved_matrix_dir, "policy_summary.csv") if resolved_matrix_dir else "",
         "matrix_detail": os.path.join(resolved_matrix_dir, "matrix_detail.csv") if resolved_matrix_dir else "",
+        "benchmark_matrix_summary": os.path.join(resolved_matrix_dir, "benchmark_policy_summary.csv") if resolved_matrix_dir else "",
+        "benchmark_matrix_detail": os.path.join(resolved_matrix_dir, "benchmark_matrix_detail.csv") if resolved_matrix_dir else "",
         "gate_checks": (resolved_gate_prefix + "_checks.csv") if resolved_gate_prefix else "",
         "gate_result": (resolved_gate_prefix + "_result.json") if resolved_gate_prefix else "",
         "gate_report": (resolved_gate_prefix + "_report.md") if resolved_gate_prefix else "",
+        "benchmark_cache_gate_checks": os.path.join(resolved_matrix_dir, "benchmark_cache_gate_checks.csv") if resolved_matrix_dir else "",
+        "benchmark_cache_gate_result": os.path.join(resolved_matrix_dir, "benchmark_cache_gate_result.json") if resolved_matrix_dir else "",
+        "benchmark_cache_gate_report": os.path.join(resolved_matrix_dir, "benchmark_cache_gate_report.md") if resolved_matrix_dir else "",
         "benchmark_p1": os.path.join(resolved_benchmark_dir, "benchmark_p1.csv") if resolved_benchmark_dir else "",
         "benchmark_p10": os.path.join(resolved_benchmark_dir, "benchmark_p10.csv") if resolved_benchmark_dir else "",
         "benchmark_nocache": os.path.join(resolved_benchmark_dir, "benchmark_nocache.csv") if resolved_benchmark_dir else "",
@@ -627,6 +634,28 @@ def read_optional_json(path):
         return json.load(f)
 
 
+def classify_web_smoke(web_status_obj, web_health_obj, index_head):
+    if isinstance(web_status_obj, dict):
+        status = str(web_status_obj.get("status", "")).upper()
+        reason = str(web_status_obj.get("reason", ""))
+        if status in {"PASS", "WARN", "FAIL", "UNKNOWN"}:
+            return ("PASS" if status == "PASS" else "WARN", reason)
+
+    if not isinstance(web_health_obj, dict):
+        return ("WARN", "web_health.json missing or invalid")
+
+    if str(web_health_obj.get("status", "")).upper() in {"WARN", "FAIL", "UNKNOWN"}:
+        return ("WARN", str(web_health_obj.get("reason", "health status not pass")))
+
+    ok = web_health_obj.get("ok")
+    index_ok = "doctype" in (index_head or "").lower()
+    if ok is True and index_ok:
+        return ("PASS", "sampled")
+    if ok is True:
+        return ("WARN", "health ok but index head does not contain doctype")
+    return ("WARN", str(web_health_obj.get("reason", "health endpoint returned non-ok")))
+
+
 def main():
     args = parse_args()
     paths = build_paths(
@@ -691,6 +720,8 @@ def main():
     benchmark_summary_rows = read_optional_csv_list(paths["benchmark_summary"])
     benchmark_detail_rows = read_optional_csv_list(paths["benchmark_detail"])
     benchmark_gate_result = read_optional_json(paths["benchmark_gate_result"])
+    benchmark_matrix_rows = read_optional_csv_list(paths["benchmark_matrix_summary"])
+    benchmark_cache_gate_result = read_optional_json(paths["benchmark_cache_gate_result"])
 
     benchmark_rows = []
     for row in benchmark_summary_rows:
@@ -884,11 +915,21 @@ def main():
 
     disk_core_lines = read_lines(paths["disk_core"])
     disk_top_lines = read_lines(paths["disk_top"])
+
+    web_health = "{\"status\":\"UNKNOWN\",\"reason\":\"web_health.json missing\"}"
+    web_health_obj = None
     if paths["web_health"] and os.path.exists(paths["web_health"]):
         with open(paths["web_health"], "r", encoding="utf-8") as f:
             web_health = f.read().strip()
-    else:
-        web_health = "{\"status\":\"UNKNOWN\",\"reason\":\"web_health.json missing\"}"
+        try:
+            web_health_obj = json.loads(web_health)
+        except Exception:
+            web_health_obj = None
+
+    web_index_head_lines = read_lines(paths["web_index_head"])
+    web_index_head = web_index_head_lines[0] if web_index_head_lines else "<missing>"
+    web_smoke_status_obj = read_optional_json(paths["web_smoke_status"])
+    web_smoke_status, web_smoke_reason = classify_web_smoke(web_smoke_status_obj, web_health_obj, web_index_head)
 
     du_core = parse_du_size_by_name(disk_core_lines)
     build_size = du_core.get("build", "-")
@@ -899,6 +940,9 @@ def main():
     benchmark_dir_rel = ""
     if paths["benchmark_dir"]:
         benchmark_dir_rel = os.path.relpath(paths["benchmark_dir"], ROOT).replace("\\", "/")
+    matrix_dir_rel = ""
+    if paths["matrix_dir"]:
+        matrix_dir_rel = os.path.relpath(paths["matrix_dir"], ROOT).replace("\\", "/")
 
     lines = []
     lines.append("# FULL TEST PERFORMANCE REPORT")
@@ -922,6 +966,9 @@ def main():
     else:
         lines.append("| benchmark 返回码 | `{}/benchmark_rcs.csv` | 组合场景正确性检查 |".format(run_dir_rel))
         lines.append("| benchmark 性能日志 | `{}/{{hello,matmul,quicksort}}_*.log` | cycles/instrs/hit/stall 提取 |".format(run_dir_rel))
+    if benchmark_matrix_rows and matrix_dir_rel:
+        lines.append("| benchmark cache matrix 汇总 | `{}/benchmark_policy_summary.csv` | benchmark 在 5 策略下的汇总统计 |".format(matrix_dir_rel))
+        lines.append("| benchmark cache matrix 明细 | `{}/benchmark_matrix_detail.csv` | benchmark x cache 策略明细 |".format(matrix_dir_rel))
     lines.append("")
     lines.append("### 0.2 三组配置的含义")
     lines.append("")
@@ -946,7 +993,9 @@ def main():
         lines.append("3. 从 benchmark_summary/detail.csv 读取 cycles/hit/stall 与 speedup 指标，形成工作负载级对比。")
     else:
         lines.append("3. 从 benchmark 日志提取 cycles/instrs/hit/stall 指标，形成工作负载级对比。")
-    lines.append("4. 生成汇总 CSV、三张 PNG 图和本 Markdown 报告。")
+    if benchmark_matrix_rows:
+        lines.append("4. 从 benchmark_policy_summary.csv 读取 cache 策略矩阵，做跨策略回归分析。")
+    lines.append("5. 生成汇总 CSV、三张 PNG 图和本 Markdown 报告。")
     lines.append("")
     lines.append("## 1. 执行范围")
     lines.append("")
@@ -956,6 +1005,8 @@ def main():
         lines.append("- ctest 全量（以当前 build 目录为准）")
     lines.append("- rv32ui 全量（42 项）x 3 组配置：p1 / p10 / no-cache")
     lines.append("- benchmark 组合：hello、matmul（cache/no-cache）、quicksort（cache/no-cache/write-through）")
+    if benchmark_matrix_rows:
+        lines.append("- benchmark cache matrix：wb_wa / wb_nowa / wt_wa / wt_nowa / nocache")
     lines.append("- Web smoke：trace_server 健康检查与首页可达")
     lines.append("")
     lines.append("## 2. 正确性结果")
@@ -1095,6 +1146,56 @@ def main():
             lines.append("- gate report: `{}`".format(os.path.relpath(paths["gate_report"], ROOT).replace("\\", "/")))
     else:
         lines.append("- 未发现 gate 结果；可执行 `python3 tools/check_cache_gate.py --summary <policy_summary.csv>` 生成门禁结论。")
+
+    lines.append("")
+    lines.append("### Benchmark Cache Matrix 与门禁")
+    lines.append("")
+    if benchmark_matrix_rows:
+        lines.append("| policy | pass/benchmarks | avg_cycles | avg_i_hit_pct | avg_d_hit_pct | avg_speedup_vs_nocache |")
+        lines.append("|---|---:|---:|---:|---:|---:|")
+        for row in benchmark_matrix_rows:
+            lines.append(
+                "| {} | {}/{} | {} | {} | {} | {} |".format(
+                    row.get("policy", "-"),
+                    row.get("pass", "0"),
+                    row.get("benchmarks", row.get("tests", "0")),
+                    row.get("avg_cycles", "0"),
+                    row.get("avg_i_hit_pct", "0"),
+                    row.get("avg_d_hit_pct", "0"),
+                    row.get("avg_speedup_vs_nocache", "0"),
+                )
+            )
+
+        lines.append("")
+        lines.append("- benchmark matrix summary: `{}`".format(os.path.relpath(paths["benchmark_matrix_summary"], ROOT).replace("\\", "/")))
+        if paths["benchmark_matrix_detail"] and os.path.exists(paths["benchmark_matrix_detail"]):
+            lines.append("- benchmark matrix detail: `{}`".format(os.path.relpath(paths["benchmark_matrix_detail"], ROOT).replace("\\", "/")))
+    else:
+        lines.append("- 未发现 benchmark cache matrix 汇总；可执行 `tools/run_benchmark_cache_matrix.sh` 生成。")
+
+    if benchmark_cache_gate_result:
+        lines.append("- benchmark cache gate status: **{}**".format(benchmark_cache_gate_result.get("status", "UNKNOWN")))
+        bench_cache_issues = benchmark_cache_gate_result.get("issues", [])
+        lines.append("- benchmark cache gate issues: {}".format(len(bench_cache_issues)))
+        if bench_cache_issues:
+            lines.append("")
+            lines.append("| severity | policy | metric | value | threshold | message |")
+            lines.append("|---|---|---|---:|---:|---|")
+            for it in bench_cache_issues[:10]:
+                lines.append(
+                    "| {} | {} | {} | {:.4f} | {:.4f} | {} |".format(
+                        it.get("severity", "-"),
+                        it.get("policy", "-"),
+                        it.get("metric", "-"),
+                        to_float(it.get("value")),
+                        to_float(it.get("threshold")),
+                        it.get("message", "-"),
+                    )
+                )
+        if paths["benchmark_cache_gate_report"] and os.path.exists(paths["benchmark_cache_gate_report"]):
+            lines.append("- benchmark cache gate report: `{}`".format(os.path.relpath(paths["benchmark_cache_gate_report"], ROOT).replace("\\", "/")))
+    else:
+        lines.append("- 未发现 benchmark cache gate 结果；可执行 `python3 tools/check_benchmark_cache_gate.py --summary <benchmark_policy_summary.csv>` 生成。")
 
     lines.append("")
     lines.append("### Top 5 speedup（p10）")
@@ -1245,11 +1346,19 @@ def main():
 
     lines.append("## 6. Web smoke")
     lines.append("")
+    lines.append("- 采样状态：**{}**".format(web_smoke_status))
+    lines.append("- 状态说明：{}".format(web_smoke_reason if web_smoke_reason else "-"))
     lines.append("- 健康检查响应：")
     lines.append("")
     lines.append("{}".format(web_health))
     lines.append("")
-    lines.append("- 首页首行：<!doctype html>（HTTP 200）")
+    lines.append("- 首页首行：{}".format(web_index_head))
+    if paths["web_health"] and os.path.exists(paths["web_health"]):
+        lines.append("- web_health 文件：`{}`".format(os.path.relpath(paths["web_health"], ROOT).replace("\\", "/")))
+    if paths["web_index_head"] and os.path.exists(paths["web_index_head"]):
+        lines.append("- web_index_head 文件：`{}`".format(os.path.relpath(paths["web_index_head"], ROOT).replace("\\", "/")))
+    if paths["web_smoke_status"] and os.path.exists(paths["web_smoke_status"]):
+        lines.append("- web_smoke_status 文件：`{}`".format(os.path.relpath(paths["web_smoke_status"], ROOT).replace("\\", "/")))
     lines.append("")
 
     lines.append("## 7. 磁盘占用（清理前）")
@@ -1280,6 +1389,12 @@ def main():
     if paths["matrix_detail"] and os.path.exists(paths["matrix_detail"]):
         matrix_detail_rel = os.path.relpath(paths["matrix_detail"], os.path.join(ROOT, "docs")).replace("\\", "/")
         lines.append("- [docs/{}]({})".format(matrix_detail_rel, matrix_detail_rel))
+    if paths["benchmark_matrix_summary"] and os.path.exists(paths["benchmark_matrix_summary"]):
+        benchmark_matrix_summary_rel = os.path.relpath(paths["benchmark_matrix_summary"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(benchmark_matrix_summary_rel, benchmark_matrix_summary_rel))
+    if paths["benchmark_matrix_detail"] and os.path.exists(paths["benchmark_matrix_detail"]):
+        benchmark_matrix_detail_rel = os.path.relpath(paths["benchmark_matrix_detail"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(benchmark_matrix_detail_rel, benchmark_matrix_detail_rel))
     if paths["gate_checks"] and os.path.exists(paths["gate_checks"]):
         gate_checks_rel = os.path.relpath(paths["gate_checks"], os.path.join(ROOT, "docs")).replace("\\", "/")
         lines.append("- [docs/{}]({})".format(gate_checks_rel, gate_checks_rel))
@@ -1289,6 +1404,15 @@ def main():
     if paths["gate_report"] and os.path.exists(paths["gate_report"]):
         gate_report_rel = os.path.relpath(paths["gate_report"], os.path.join(ROOT, "docs")).replace("\\", "/")
         lines.append("- [docs/{}]({})".format(gate_report_rel, gate_report_rel))
+    if paths["benchmark_cache_gate_checks"] and os.path.exists(paths["benchmark_cache_gate_checks"]):
+        benchmark_cache_gate_checks_rel = os.path.relpath(paths["benchmark_cache_gate_checks"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(benchmark_cache_gate_checks_rel, benchmark_cache_gate_checks_rel))
+    if paths["benchmark_cache_gate_result"] and os.path.exists(paths["benchmark_cache_gate_result"]):
+        benchmark_cache_gate_result_rel = os.path.relpath(paths["benchmark_cache_gate_result"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(benchmark_cache_gate_result_rel, benchmark_cache_gate_result_rel))
+    if paths["benchmark_cache_gate_report"] and os.path.exists(paths["benchmark_cache_gate_report"]):
+        benchmark_cache_gate_report_rel = os.path.relpath(paths["benchmark_cache_gate_report"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(benchmark_cache_gate_report_rel, benchmark_cache_gate_report_rel))
     if paths["benchmark_p1"] and os.path.exists(paths["benchmark_p1"]):
         benchmark_p1_rel = os.path.relpath(paths["benchmark_p1"], os.path.join(ROOT, "docs")).replace("\\", "/")
         lines.append("- [docs/{}]({})".format(benchmark_p1_rel, benchmark_p1_rel))
@@ -1313,6 +1437,15 @@ def main():
     if paths["benchmark_gate_report"] and os.path.exists(paths["benchmark_gate_report"]):
         benchmark_gate_report_rel = os.path.relpath(paths["benchmark_gate_report"], os.path.join(ROOT, "docs")).replace("\\", "/")
         lines.append("- [docs/{}]({})".format(benchmark_gate_report_rel, benchmark_gate_report_rel))
+    if paths["web_health"] and os.path.exists(paths["web_health"]):
+        web_health_rel = os.path.relpath(paths["web_health"], ROOT).replace("\\", "/")
+        lines.append("- [{}](../{})".format(web_health_rel, web_health_rel))
+    if paths["web_index_head"] and os.path.exists(paths["web_index_head"]):
+        web_index_head_rel = os.path.relpath(paths["web_index_head"], ROOT).replace("\\", "/")
+        lines.append("- [{}](../{})".format(web_index_head_rel, web_index_head_rel))
+    if paths["web_smoke_status"] and os.path.exists(paths["web_smoke_status"]):
+        web_smoke_status_rel = os.path.relpath(paths["web_smoke_status"], ROOT).replace("\\", "/")
+        lines.append("- [{}](../{})".format(web_smoke_status_rel, web_smoke_status_rel))
     if os.path.exists(paths["ctest_log"]):
         lines.append("- [{0}/ctest_full.log](../{0}/ctest_full.log)".format(run_dir_rel))
     rv32ui_p1_log = os.path.join(paths["run_dir"], "rv32ui_p1.log")
