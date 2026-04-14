@@ -79,6 +79,21 @@
 - Trace JSON + SSE + Web 可视化。
 - 一键脚本与自动报告，支持复现实验与答辩展示。
 
+### 2.7 Benchmark 自动化与门禁链路（新增细化）
+
+1. benchmark 三配置结构化跑数
+   - `tools/run_benchmark_profiles.sh` 已稳定产出 `benchmark_p1/p10/nocache.csv`、`benchmark_detail.csv`、`benchmark_summary.csv`。
+2. benchmark cache matrix 跑数
+   - `tools/run_benchmark_cache_matrix.sh` 已支持 5 策略（`wb_wa/wb_nowa/wt_wa/wt_nowa/nocache`）x 3 benchmark 批量运行。
+   - 已产出策略级汇总 `benchmark_policy_summary.csv` 与样例级明细 `benchmark_matrix_detail.csv`。
+3. benchmark cache gate
+   - `tools/check_benchmark_cache_gate.py` 已支持 PASS/WARN/FAIL 判定与阈值参数化。
+   - 已产出 `benchmark_cache_gate_checks.csv`、`benchmark_cache_gate_result.json`、`benchmark_cache_gate_report.md`。
+4. 本地阻断链路整合
+   - `tools/run_cache_gate_local.sh` 已整合 rv32ui cache gate + benchmark gate + benchmark cache gate（三级门禁）。
+5. 报告链路整合
+   - `tools/gen_full_test_report.py` 已接入 benchmark cache matrix 与 web smoke 采样状态，报告中可直接展示策略对比与门禁结果。
+
 ## 3. 当前验证结果（Cache 视角）
 
 ### 3.1 正确性
@@ -104,7 +119,27 @@
 - 数据来源：`docs/benchmark/20260414/benchmark_summary.csv`
 - benchmark gate：PASS（`docs/benchmark/20260414/benchmark_gate_result.json`）
 
-### 3.4 Cache 矩阵回归与门禁（20260413）
+### 3.4 Benchmark Cache Matrix（20260413）
+
+| 策略 | pass/benchmarks | avg cycles | avg I-hit | avg D-hit | vs no-cache speedup |
+|---|---:|---:|---:|---:|---:|
+| wb_wa | 3/3 | 750342.67 | 99.71% | 98.20% | 11.1590x |
+| wb_nowa | 3/3 | 751638.67 | 99.71% | 93.95% | 11.1440x |
+| wt_wa | 3/3 | 751638.67 | 99.71% | 93.95% | 11.1440x |
+| wt_nowa | 3/3 | 751638.67 | 99.71% | 93.95% | 11.1440x |
+| nocache | 3/3 | 9409309.00 | 0.00% | 0.00% | 1.0000x |
+
+- benchmark cache gate：PASS（baseline=`wb_wa`，issues=0）。
+- 关键证据：
+   - `docs/cache_matrix/20260413/benchmark_policy_summary.csv`
+   - `docs/cache_matrix/20260413/benchmark_matrix_detail.csv`
+   - `docs/cache_matrix/20260413/benchmark_cache_gate_result.json`
+   - `docs/cache_matrix/20260413/benchmark_cache_gate_report.md`
+- 结果解读：
+   - `wb_wa` 在当前 benchmark 集合下保持最优，较 `wb_nowa/wt_*` 的 D-hit 高约 4.25 个百分点。
+   - 相比 no-cache，cache 策略在 benchmark 上保持约 11x 量级平均加速。
+
+### 3.5 Cache 矩阵回归与门禁（rv32ui，20260413）
 
 | 策略 | 通过率 | avg cycles | avg I-hit | avg D-hit | vs no-cache speedup |
 |---|---:|---:|---:|---:|---:|
@@ -115,12 +150,11 @@
 | nocache | 42/42 | 4633.83 | 0.00% | 0.00% | 1.0000x |
 
 - 门禁脚本输出：PASS（baseline=wb_wa，issues=0）。
-- benchmark cache matrix（20260413）已完成：5 策略 x 3 benchmark，benchmark cache gate 为 PASS（issues=0）。
 - miss 分解（p10/wt_nowa）：
    - I-miss 占比：cold 87.4% / conflict 12.6% / capacity 0.0%
    - D-miss 占比：cold 14.4% / conflict 85.6% / capacity 0.0%
 
-### 3.5 Web smoke 重采样
+### 3.6 Web smoke 重采样
 
 - 采样脚本：`tools/sample_web_smoke.sh`
 - 最新结果：PASS
@@ -129,59 +163,37 @@
    - `tmp/full_run_20260413/web_smoke_status.json`
 - 说明：采样失败按 WARN 记录，不阻断报告生成。
 
-### 3.6 可汇报结论
+### 3.7 可汇报结论
 
 - Cache 在教学 workload 上带来稳定且显著的收益（6x-12x 量级）。
 - 当前架构中 I-cache 对整体性能更敏感（相关系数更高）。
+- benchmark cache matrix 显示 `wb_wa` 在当前样本下综合最优，策略差异已可被门禁脚本量化捕获。
 - 正确性与性能已经形成闭环：全量通过 + 可量化收益。
 
-## 4. 还需要补哪些功能（按优先级）
+## 4. 后续待办（仅保留未完成项）
 
-### 4.1 Cache 主线优先项
+### 4.1 CI 自动阻断启用
 
-1. Cache 回归基线自动化（已完成）
-   - 已新增 `tools/run_cache_matrix.sh`，可批量执行 WB/WT x WA/no-WA + no-cache 组合。
-   - 产物目录固定为 `docs/cache_matrix/<run-tag>/`，包含每策略原始 CSV 与矩阵汇总。
-2. Cache 指标门禁（已完成）
-   - 已新增 `tools/check_cache_gate.py`，读取 `policy_summary.csv` 输出 PASS/WARN/FAIL。
-   - 同步产出 `gate_checks.csv`、`gate_result.json`、`gate_report.md`，可直接接入 CI。
-3. Benchmark Cache Matrix 门禁（已完成）
-   - 已新增 `tools/run_benchmark_cache_matrix.sh` 与 `tools/check_benchmark_cache_gate.py`。
-   - 已在 `docs/cache_matrix/20260413/` 生成 benchmark 策略矩阵与 gate 产物。
-4. Cache 可解释性增强（已完成）
-   - 已在 cache 核心实现 miss 分解：cold/conflict/capacity。
-   - 指标已打通到 Pipeline 统计、Trace JSON、`test_all.sh` CSV 与最终性能行。
-5. Cache 专项验证（已完成）
-   - 新增 `tests/test_cache_miss_types.cpp` 并接入 CTest，覆盖冲突/容量 miss 分类回归。
+1. 将 `.github/workflows/cache-gate.yml` 从手动触发切换为 PR/push 自动触发。
+2. 固化三类门禁阈值分层（本地宽松、预提交中等、CI严格），减少人工判读。
 
-### 4.2 门禁执行链路（已落地）
-
-1. 本地阻断入口（已完成）
-   - 新增 `tools/run_cache_gate_local.sh`，串联 build、ctest、matrix、cache gate、benchmark gate 全链路。
-   - 默认策略：PASS=0，WARN/FAIL 非零阻断。
-2. CI 就绪模板（已完成）
-   - 新增 `.github/workflows/cache-gate.yml`（当前手动触发）。
-   - 后续可直接打开 PR/push 触发实现自动阻断。
-
-### 4.3 文档治理与归档（已完成）
-
-1. 历史产物归档
-   - 已将 20260409 的 summary 与 figure 迁移到 `archive/docs-history/`。
-2. 索引同步
-   - 已更新 `docs/DOCS_CATALOG.md` 与 `archive/MANIFEST.md`，标注 current/historical。
-3. second 目录完善
-   - 新增 cache gate 使用说明、验收检测清单、可视化演示指南与检测报告。
-
-### 4.4 体系结构增强项
+### 4.2 体系结构增强项
 
 1. 中断控制器抽象
-   - 从 timer/uart 直连 CSR，演进到统一中断汇聚层。
-2. 异常/中断文档化
-   - 补齐 trap 上下文保存恢复流程图。
-3. MMU 增强
-   - 在基础 Sv32 上补充更多权限边界与页表场景测试。
+   - 从 timer/uart 直连 CSR，演进为统一中断汇聚层，降低外设耦合。
+2. 异常/中断流程文档化
+   - 增补 trap 上下文保存/恢复流程图与典型异常路径示例。
+3. MMU 测试增强
+   - 在 Sv32 基础上补充权限边界、页表异常和 TLB 一致性专项回归用例。
 
-### 4.5 miniOS MVP（可选）
+### 4.3 Benchmark 体系增强
+
+1. 扩展 benchmark 样本
+   - 增加访存模式差异更大的 workload，用于放大策略差异。
+2. 建立跨 run-tag 趋势对比
+   - 在报告中增加 benchmark cache matrix 历史趋势（cycles/hit/speedup）变化视图。
+
+### 4.4 miniOS MVP（可选）
 
 1. 启动与串口输出。
 2. trap 框架（ECALL + timer interrupt）。
@@ -197,6 +209,6 @@
   - 大规模性能测试使用 quiet 模式，降低终端 I/O 噪声。
   - 报告图表生成依赖 Python 标准库，环境依赖较轻。
 
-## 7. 汇报时可直接使用的总结话术
+## 6. 汇报时可直接使用的总结话术
 
-本项目已完成一台可独立运行的 RV32I 教学模拟器 myCPU。实现上覆盖 49 条有效指令，完成五级流水、I/D Cache、Sv32 基础 MMU、异常与中断、UART/Timer 外设。验证上通过 20 项 CTest 与 42 项 rv32ui 三配置全量测试。性能上，cache 在 rv32ui 提供 6.46x 平均加速，在 matmul 与 quicksort 分别达到 11.34x 和 12.71x。下一阶段将以 Cache 回归固化与可解释性增强为主线，并推进中断抽象与 miniOS MVP 演示，形成从 CPU 到 OS 的课程闭环。
+本项目已完成一台可独立运行的 RV32I 教学模拟器 myCPU。实现上覆盖 49 条有效指令，完成五级流水、I/D Cache、Sv32 基础 MMU、异常与中断、UART/Timer 外设。验证上通过 20 项 CTest 与 42 项 rv32ui 三配置全量测试。性能上，cache 在 rv32ui 提供 6.46x 平均加速，在 matmul 与 quicksort 分别达到 11.34x 和 12.71x；benchmark cache matrix 显示 `wb_wa` 在当前样本下综合最优并已纳入门禁。下一阶段将推进 CI 自动阻断启用、中断抽象、MMU 边界测试与 miniOS MVP，形成从 CPU 到 OS 的课程闭环。
