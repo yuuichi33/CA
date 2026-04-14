@@ -1,4 +1,4 @@
-# Detection Report（2026-04-13）
+# Detection Report（2026-04-13，更新于 2026-04-14）
 
 ## 1. 目标与范围
 
@@ -6,6 +6,7 @@
 - build + ctest
 - rv32ui 三配置
 - cache matrix + gate
+- benchmark 三配置 + benchmark gate
 - FULL 报告一致性
 
 ## 2. 检测结论
@@ -50,6 +51,20 @@
   - `docs/cache_matrix/20260413/gate_result.json`
   - `docs/cache_matrix/20260413/gate_report.md`
   - `docs/cache_matrix/20260413/gate_checks.csv`
+
+### 3.5 benchmark 三配置（20260414）
+
+| benchmark | rc_p1 | rc_p10 | rc_nocache | cycles_p10 | cycles_nocache | speedup_p10 |
+|---|---:|---:|---:|---:|---:|---:|
+| hello | 0 | 0 | 0 | 161 | 1518 | 9.43x |
+| matmul | 0 | 0 | 0 | 277966 | 3151861 | 11.34x |
+| quicksort_stress | 0 | 0 | 0 | 1972901 | 25074548 | 12.71x |
+
+- benchmark gate：PASS（issues=0）
+- 结果文件：
+  - `docs/benchmark/20260414/benchmark_summary.csv`
+  - `docs/benchmark/20260414/benchmark_gate_result.json`
+  - `docs/benchmark/20260414/benchmark_gate_report.md`
 
 ## 4. 报告一致性核对
 

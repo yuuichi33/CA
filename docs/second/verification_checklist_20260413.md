@@ -1,4 +1,4 @@
-# 验收检测清单（2026-04-13）
+# 验收检测清单（2026-04-14）
 
 本文档用于最终交付前的快速核对。
 
@@ -22,7 +22,7 @@
   - 命令：`bash test_all.sh --csv docs/rv32ui_perf_full_nocache.csv --no-cache --cache-penalty 10 --quiet`
   - 期望：42/42 PASS
 
-## 3. Cache Matrix 与 Gate
+## 3. Cache / Benchmark Gate
 
 - [ ] matrix 五策略输出完整
   - 命令：`./tools/run_cache_matrix.sh --run-tag <tag>`
@@ -33,6 +33,12 @@
 - [ ] 本地阻断入口有效
   - 命令：`./tools/run_cache_gate_local.sh --run-tag <tag>`
   - 期望：WARN/FAIL 返回非零，PASS 返回 0
+- [ ] benchmark 三配置输出完整
+  - 命令：`bash tools/run_benchmark_profiles.sh --run-tag <tag> --cycles 50000000`
+  - 期望：`benchmark_summary.csv` 与 `benchmark_detail.csv` 存在
+- [ ] benchmark gate 判定通过
+  - 命令：`python3 tools/check_benchmark_gate.py --summary docs/benchmark/<tag>/benchmark_summary.csv --output-prefix docs/benchmark/<tag>/benchmark_gate`
+  - 期望：`benchmark_gate_result.json` 中 `status=PASS`
 
 ## 4. 报告与图表
 
@@ -58,6 +64,6 @@
 
 ## 6. 归档核对
 
-- [ ] docs 仅保留当前版本（20260413）主要产物
+- [ ] docs 仅保留当前版本（20260414）主要产物
 - [ ] 旧版（20260409）summary 与图表已归档到 `archive/docs-history/`
 - [ ] 历史链接可追溯，不存在断链

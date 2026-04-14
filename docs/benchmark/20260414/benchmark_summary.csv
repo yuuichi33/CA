@@ -1,0 +1,4 @@
+benchmark,rc_p1,rc_p10,rc_nocache,ms_p1,ms_p10,ms_nocache,cycles_p1,cycles_p10,cycles_nocache,instrs_p1,instrs_p10,instrs_nocache,i_hit_p10,d_hit_p10,stall_p10,cache_stall_p10,hazard_stall_p10,i_cold_miss_p10,i_conflict_miss_p10,i_capacity_miss_p10,d_cold_miss_p10,d_conflict_miss_p10,d_capacity_miss_p10,speedup_p10,speedup_p1,penalty_ratio_p10_over_p1,checksum_p10
+hello,0,0,0,69,64,65,143,161,1518,113,113,113,99.15,95.24,21,24,21,1,0,0,1,0,0,9.428571,10.615385,1.125874,
+matmul,0,0,0,170,173,161,277570,277966,3151861,230400,230400,230400,99.98,99.5,165,528,165,43,0,0,51,0,0,11.339016,11.355193,1.001427,
+quicksort_stress,0,0,0,735,732,712,1971272,1972901,25074548,1724935,1724935,1724935,100.0,99.86,56,2172,56,19,0,0,267,27,182,12.709481,12.719984,1.000826,e48d8e25

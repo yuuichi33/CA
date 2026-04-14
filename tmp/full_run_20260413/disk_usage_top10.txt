@@ -1,0 +1,10 @@
+7.7M	./build
+4.2M	./riscv-tests
+240K	./docs
+208K	./archive
+204K	./src
+176K	./tools
+96K	./tests
+64K	./web
+52K	./benchmarks
+36K	./tmp

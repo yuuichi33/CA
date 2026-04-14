@@ -59,15 +59,17 @@ bash test_all.sh --csv docs/rv32ui_perf_full_p1.csv --cache-penalty 1 --quiet
 bash test_all.sh --csv docs/rv32ui_perf_full_p10.csv --cache-penalty 10 --quiet
 bash test_all.sh --csv docs/rv32ui_perf_full_nocache.csv --no-cache --cache-penalty 10 --quiet
 
-# 3) benchmark sample runs
-./build/mycpu --quiet --load benchmarks/hello.elf --cache-penalty 10
-./build/mycpu --quiet --load benchmarks/matmul.elf --cache-penalty 10
-./build/mycpu --quiet --load benchmarks/matmul.elf --no-cache --cache-penalty 10
-./build/mycpu --quiet --load benchmarks/quicksort_stress.elf --cache-penalty 10
-./build/mycpu --quiet --load benchmarks/quicksort_stress.elf --no-cache --cache-penalty 10
+# 3) benchmark structured data + benchmark gate
+bash tools/run_benchmark_profiles.sh --run-tag <run-tag> --cycles 50000000
+python3 tools/check_benchmark_gate.py \
+  --summary docs/benchmark/<run-tag>/benchmark_summary.csv \
+  --output-prefix docs/benchmark/<run-tag>/benchmark_gate
 
 # 4) generate report + charts
-python3 tools/gen_full_test_report.py --run-tag <run-tag>
+python3 tools/gen_full_test_report.py \
+  --run-tag <run-tag> \
+  --benchmark-dir docs/benchmark/<run-tag> \
+  --benchmark-gate-prefix docs/benchmark/<run-tag>/benchmark_gate
 ```
 
 ### Outputs
@@ -77,8 +79,10 @@ python3 tools/gen_full_test_report.py --run-tag <run-tag>
 - `docs/figures/full_run_<run-tag>_speedup_bar.png`
 - `docs/figures/full_run_<run-tag>_hitrate_scatter.png`
 - `docs/figures/full_run_<run-tag>_benchmark_cycles_log.png`
+- `docs/benchmark/<run-tag>/benchmark_summary.csv`
+- `docs/benchmark/<run-tag>/benchmark_gate_result.json`
 
-## Latest Test Results (2026-04-13)
+## Latest Test Results (2026-04-14)
 
 ### Correctness
 
@@ -88,13 +92,18 @@ python3 tools/gen_full_test_report.py --run-tag <run-tag>
 | rv32ui p1 | 42/42 PASS | `docs/rv32ui_perf_full_p1.csv` |
 | rv32ui p10 | 42/42 PASS | `docs/rv32ui_perf_full_p10.csv` |
 | rv32ui no-cache | 42/42 PASS | `docs/rv32ui_perf_full_nocache.csv` |
+| benchmark gate | PASS (issues=0) | `docs/benchmark/20260414/benchmark_gate_result.json` |
 
 ### Benchmark Snapshot
 
 | Case | Cache cycles | No-cache cycles | Speedup |
 | --- | ---: | ---: | ---: |
+| hello | 161 | 1518 | 9.43x |
 | matmul | 277966 | 3151861 | 11.34x |
 | quicksort_stress | 1972901 | 25074548 | 12.71x |
+
+- Summary source: `docs/benchmark/20260414/benchmark_summary.csv`
+- Gate report: `docs/benchmark/20260414/benchmark_gate_report.md`
 
 ### Cache Matrix + Gate
 
@@ -112,13 +121,14 @@ python3 tools/gen_full_test_report.py --run-tag <run-tag>
 ### Local Gate (Blocking)
 
 ```bash
-# full pipeline: build + ctest + matrix + gate
-./tools/run_cache_gate_local.sh --run-tag 20260413
+# full pipeline: build + ctest + cache matrix + cache gate + benchmark gate
+./tools/run_cache_gate_local.sh --run-tag 20260414
 
-# reuse existing matrix summary for quick gate check
+# reuse existing summaries for quick gate check
 ./tools/run_cache_gate_local.sh \
-  --skip-build --skip-ctest --skip-matrix \
-  --summary docs/cache_matrix/20260413/policy_summary.csv
+  --skip-build --skip-ctest --skip-matrix --skip-benchmark \
+  --summary docs/cache_matrix/20260413/policy_summary.csv \
+  --bench-summary docs/benchmark/20260414/benchmark_summary.csv
 ```
 
 ## Cache Regression Matrix And Gate
@@ -138,12 +148,15 @@ python3 tools/gen_full_test_report.py \
   --run-tag 20260413 \
   --run-dir tmp/full_run_20260409 \
   --cache-matrix-dir docs/cache_matrix/20260413 \
-  --gate-prefix docs/cache_matrix/20260413/gate
+  --gate-prefix docs/cache_matrix/20260413/gate \
+  --benchmark-dir docs/benchmark/20260414 \
+  --benchmark-gate-prefix docs/benchmark/20260414/benchmark_gate
 ```
 
 ### CI Entry (ready-to-enable)
 
 - Workflow file: `.github/workflows/cache-gate.yml`
+- Scope: cache matrix gate + benchmark gate (both can block with non-zero exit)
 - Current trigger: `workflow_dispatch` (manual)
 - To enable automatic blocking on PR/push later, uncomment `push/pull_request` triggers in the workflow file.
 
@@ -154,6 +167,14 @@ python3 tools/gen_full_test_report.py \
 - `docs/cache_matrix/<run-tag>/gate_checks.csv`
 - `docs/cache_matrix/<run-tag>/gate_result.json`
 - `docs/cache_matrix/<run-tag>/gate_report.md`
+- `docs/benchmark/<run-tag>/benchmark_p1.csv`
+- `docs/benchmark/<run-tag>/benchmark_p10.csv`
+- `docs/benchmark/<run-tag>/benchmark_nocache.csv`
+- `docs/benchmark/<run-tag>/benchmark_detail.csv`
+- `docs/benchmark/<run-tag>/benchmark_summary.csv`
+- `docs/benchmark/<run-tag>/benchmark_gate_checks.csv`
+- `docs/benchmark/<run-tag>/benchmark_gate_result.json`
+- `docs/benchmark/<run-tag>/benchmark_gate_report.md`
 
 ## Cache Highlights
 
@@ -165,6 +186,7 @@ python3 tools/gen_full_test_report.py \
 - Latest CTest (20260413): 20/20 PASS.
 - Latest matrix (20260413): all 5 profiles are 42/42 PASS.
 - Latest gate (20260413): PASS with baseline `wb_wa` and 0 issues.
+- Latest benchmark gate (20260414): PASS with 0 issues.
 - Latest matrix winner: `wb_wa` avg speedup vs no-cache = 6.4705x.
 - Verified correctness: rv32ui p1/p10/no-cache are all 42/42 PASS.
 - Quantified gains (full report):
@@ -216,6 +238,8 @@ camycpu/
 
 - `tools/gen_full_test_report.py`: generates markdown report, summary CSV, and PNG charts
 - `tools/run_cache_gate_local.sh`: one-command local gate pipeline (non-zero exit blocks)
+- `tools/run_benchmark_profiles.sh`: benchmark p1/p10/no-cache batch runner and CSV emitter
+- `tools/check_benchmark_gate.py`: benchmark PASS/WARN/FAIL gate checker
 - `docs/FULL_TEST_PERFORMANCE_REPORT.md`: consolidated full-run report
 - `docs/rv32ui_perf_full_p1.csv`: rv32ui profile p1 dataset
 - `docs/rv32ui_perf_full_p10.csv`: rv32ui profile p10 dataset
@@ -229,10 +253,11 @@ camycpu/
 - `docs/` keeps current delivery artifacts only:
   - `FULL_TEST_PERFORMANCE_REPORT.md`
   - `BENCHMARK_REPORT.md`
-  - `full_test_summary_20260413.csv`
+  - `full_test_summary_20260414.csv`
   - `rv32ui_perf_full_*.csv`
-  - `figures/full_run_20260413_*.png`
+  - `figures/full_run_20260414_*.png`
   - `cache_matrix/20260413/`
+  - `benchmark/20260414/`
   - `second/`
 - `archive/docs-history/reports/` keeps historical markdown reports.
 - `archive/docs-history/csv-legacy/` keeps historical csv datasets.

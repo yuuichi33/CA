@@ -1,0 +1,10 @@
+benchmark,profile,ms,rc,cycles,instrs,i_cache_hit_pct,d_cache_hit_pct,stall,cache_stall,hazard_stall,i_cold_miss,i_conflict_miss,i_capacity_miss,d_cold_miss,d_conflict_miss,d_capacity_miss,checksum,log_path
+hello,p1,69,0,143,113,99.15,95.24,21,6,21,1,0,0,1,0,0,,tmp/benchmark_run_20260414/hello_p1.log
+matmul,p1,170,0,277570,230400,99.98,99.50,165,132,165,43,0,0,51,0,0,,tmp/benchmark_run_20260414/matmul_p1.log
+quicksort_stress,p1,735,0,1971272,1724935,100.00,99.86,56,543,56,19,0,0,267,27,182,e48d8e25,tmp/benchmark_run_20260414/quicksort_stress_p1.log
+hello,p10,64,0,161,113,99.15,95.24,21,24,21,1,0,0,1,0,0,,tmp/benchmark_run_20260414/hello_p10.log
+matmul,p10,173,0,277966,230400,99.98,99.50,165,528,165,43,0,0,51,0,0,,tmp/benchmark_run_20260414/matmul_p10.log
+quicksort_stress,p10,732,0,1972901,1724935,100.00,99.86,56,2172,56,19,0,0,267,27,182,e48d8e25,tmp/benchmark_run_20260414/quicksort_stress_p10.log
+hello,nocache,65,0,1518,113,0.00,0.00,21,0,21,0,0,0,0,0,0,,tmp/benchmark_run_20260414/hello_nocache.log
+matmul,nocache,161,0,3151861,230400,0.00,0.00,165,0,165,0,0,0,0,0,0,,tmp/benchmark_run_20260414/matmul_nocache.log
+quicksort_stress,nocache,712,0,25074548,1724935,0.00,0.00,56,0,56,0,0,0,0,0,0,e48d8e25,tmp/benchmark_run_20260414/quicksort_stress_nocache.log

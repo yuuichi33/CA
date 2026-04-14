@@ -38,7 +38,7 @@ This archive lives at repository root (`archive/`) and no longer keeps an extra 
 - Docs history figures and summaries (2026-04-13 migration)
   - Source path: docs/figures/full_run_20260409_*.png and docs/full_test_summary_20260409.csv
   - Files moved to: docs-history/figures/ and docs-history/csv-legacy/
-  - Purpose: keep `docs/` reserved for current run-tag artifacts (20260413)
+  - Purpose: keep `docs/` reserved for current run-tag artifacts (latest: 20260414)
 
 ## Notes
 - This archive stores stage provenance only; final deliverables are kept in docs/ root and docs/figures/.

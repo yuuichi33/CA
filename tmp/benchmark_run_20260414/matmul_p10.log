@@ -1,0 +1,3 @@
+Benchmark Finished
+37287936
+Cycles: 277966, Instrs: 230400, I-Cache Hit: 99.98%, D-Cache Hit: 99.50%, I-Miss: 43, D-Miss: 51, I-Evict: 0, D-Evict: 0, I-WB: 0, D-WB: 0, I-ColdMiss: 43, I-ConflictMiss: 0, I-CapacityMiss: 0, D-ColdMiss: 51, D-ConflictMiss: 0, D-CapacityMiss: 0, Stall: 693, CacheStall: 528, HazardStall: 165

@@ -1,13 +1,6 @@
 # FULL TEST PERFORMANCE REPORT
 
-生成日期：2026-04-13
-
-## 摘要
-
-- 本项目成功实现了一台 五级流水线 RISC-V 处理器模拟器。通过对存储层次结构的深度优化，在 12.7x 的加速比 下保持了 100% 的指令集兼容性。
-- 完整通过 RISC-V 官方 rv32ui-p 测试集（42/42），涵盖 P1/P10/No-Cache 极端时延组合。
-- 在 10 周期内存惩罚下，4-way 组相联 Cache 使平均执行效率提升了 6.46 倍，在矩阵乘法等密集任务中提升超过 11 倍。
-- 实现了 Cache Miss 的三类分解（Cold/Conflict/Capacity），为后续操作系统级的内存调优提供了硬件级观测数据。
+生成日期：2026-04-14
 
 ## 0. 数据来源与口径定义
 
@@ -18,11 +11,10 @@
 | rv32ui p1 | `docs/rv32ui_perf_full_p1.csv` | cache on + penalty=1 的基线 |
 | rv32ui p10 | `docs/rv32ui_perf_full_p10.csv` | cache on + penalty=10 的对比组 |
 | rv32ui no-cache | `docs/rv32ui_perf_full_nocache.csv` | cache off 的基线组 |
-| ctest 日志 | `tmp/full_run_20260413/ctest_full.log` | 正确性统计（20 项） |
-| benchmark 返回码 | `tmp/full_run_20260409/benchmark_rcs.csv` | 组合场景正确性检查 |
-| benchmark 性能日志 | `tmp/full_run_20260409/{hello,matmul,quicksort}_*.log` | cycles/instrs/hit/stall 提取 |
-
-注：ctest 使用 2026-04-13 的最新复核日志；benchmark 仍沿用 20260409 的稳定基线日志。
+| ctest 日志 | `tmp/full_run_20260413/ctest_full.log` | 正确性统计（ctest 全量） |
+| benchmark 汇总 | `docs/benchmark/20260414/benchmark_summary.csv` | benchmark 三配置（p1/p10/no-cache）汇总统计 |
+| benchmark 明细 | `docs/benchmark/20260414/benchmark_detail.csv` | benchmark profile 级明细（用于图表） |
+| benchmark 原始 CSV | `docs/benchmark/20260414/benchmark_p1.csv` / `docs/benchmark/20260414/benchmark_p10.csv` / `docs/benchmark/20260414/benchmark_nocache.csv` | 每个 profile 的原始输出 |
 
 ### 0.2 三组配置的含义
 
@@ -39,6 +31,13 @@
 - `penalty_ratio = cycles_p10 / cycles_p1`。用于评估 workload 对 miss penalty 敏感度。
 - 相关系数 `corr(D-hit, speedup)` 与 `corr(I-hit, speedup)` 用于衡量命中率与收益关系。
 
+### 0.4 数据处理流程
+
+1. 按 test 名称对 p1/p10/no-cache 三份 CSV 做交集对齐。
+2. 逐项计算 speedup/penalty ratio，并按访存类与非访存类分组。
+3. 从 benchmark_summary/detail.csv 读取 cycles/hit/stall 与 speedup 指标，形成工作负载级对比。
+4. 生成汇总 CSV、三张 PNG 图和本 Markdown 报告。
+
 ## 1. 执行范围
 
 - ctest 全量（20 项）
@@ -54,14 +53,11 @@
 - rv32ui no-cache: 42/42 通过。
 - benchmark 返回码：
 
-| case | rc |
-|---|---:|
-| hello_default | 0 |
-| matmul_cache_p10 | 0 |
-| matmul_nocache_p10 | 0 |
-| quicksort_cache_default | 0 |
-| quicksort_nocache | 0 |
-| quicksort_writethrough_p1 | 0 |
+| benchmark | rc_p1 | rc_p10 | rc_nocache |
+|---|---:|---:|---:|
+| hello | 0 | 0 | 0 |
+| matmul | 0 | 0 | 0 |
+| quicksort_stress | 0 | 0 | 0 |
 
 ## 3. 性能统计（rv32ui）
 
@@ -70,24 +66,18 @@
 - p10 P90 speedup: 7.42x
 - p10 几何均值 speedup: 6.40x
 - p10/p1 平均 cycle 比: 1.54x
-  - 增加 10 倍的 miss penalty 仅导致执行周期增加了 1.54 倍，说明 Cache 极大地吸收了内存延迟。绝大部分访存都在 Cache 命中，没有穿透到低速内存。
 - 平均执行时长 ms（p1 / p10 / no-cache）: 3000.48 / 3100.14 / 3105.24
 - 访存密集测试平均 speedup: 6.57x；非访存测试平均 speedup: 6.41x
-  - 访存密集与非访存测试都显著受益，且访存密集组收益更高，符合 Cache 对内存访问路径优化的预期。
 - D-hit 与 speedup 相关系数: 0.475
 - I-hit 与 speedup 相关系数: 0.711
-  - `corr(I-hit, speedup) > corr(D-hit, speedup)`，体现当前流水线对取指路径延迟更敏感。
 
 ### Cache Stall 与 Miss 分解（p10）
 
 - 平均 stall 拆分（stall / cache_stall / hazard_stall）: 5.19 / 315.14 / 5.19
-  - `cache_stall` 显著高于 `hazard_stall`，性能瓶颈主要来自存储层次而非数据相关冒险。
 - 平均 I-miss 分解（cold/conflict/capacity）: 21.31 / 3.07 / 0.00
 - 平均 D-miss 分解（cold/conflict/capacity）: 0.31 / 1.83 / 0.00
 - I-miss 占比（cold/conflict/capacity）: 87.4% / 12.6% / 0.0%
 - D-miss 占比（cold/conflict/capacity）: 14.4% / 85.6% / 0.0%
-  - I-miss 以 cold miss 为主，说明启动阶段与代码工作集加载是主要来源。
-  - D-miss 以 conflict miss 为主，提示后续可优先优化映射冲突（例如组相联度与数据布局）。
 
 #### D-conflict miss Top 5
 
@@ -116,103 +106,146 @@
 - gate issues: 0
 - gate report: `docs/cache_matrix/20260413/gate_report.md`
 
-补充解读：
-- `wb_wa` 在本轮矩阵中保持最优（6.4705x），其余三种 cache 策略接近，说明当前 workload 对写策略差异不敏感。
-- 5 组策略均为 42/42 通过且 gate 为 PASS，说明“功能正确性 + 性能门禁”双目标同时满足。
-
 ### Top 5 speedup（p10）
 
-| test | speedup | cycles_nocache | cycles_p10 | 说明 |
-|---|---:|---:|---:|---|
-| rv32ui-p-ld_st | 7.88x | 15198 | 1928 | 纯内存加载/存储操作，无Cache时受制于内存墙，开启Cache后收益最大化 |
-| rv32ui-p-sb | 7.65x | 6500 | 850 | 内存字节写入 |
-| rv32ui-p-sw | 7.58x | 7150 | 943 | 内存字写入 | 
-| rv32ui-p-sh | 7.46x | 7083 | 949 | 内存半字写入 |
-| rv32ui-p-fence_i | 7.45x | 5045 | 677 | 指令屏障，重度依赖指令/数据同步，Cache显著降低了同步代价 |
+| test | speedup | cycles_nocache | cycles_p10 |
+|---|---:|---:|---:|
+| rv32ui-p-ld_st | 7.88x | 15198 | 1928 |
+| rv32ui-p-sb | 7.65x | 6500 | 850 |
+| rv32ui-p-sw | 7.58x | 7150 | 943 |
+| rv32ui-p-sh | 7.46x | 7083 | 949 |
+| rv32ui-p-fence_i | 7.45x | 5045 | 677 |
 
 ### Bottom 5 speedup（p10）
 
-| test | speedup | cycles_nocache | cycles_p10 | 说明 |
-|---|---:|---:|---:|---|
-| rv32ui-p-lh | 4.53x | 3864 | 853 | 相比字对齐访问，非对齐/半字读取的流水线开销占比略高，稀释了部分访存收益 |
-| rv32ui-p-lhu | 4.60x | 3963 | 862 | 相比字对齐访问，非对齐/半字读取的流水线开销占比略高，稀释了部分访存收益 |
-| rv32ui-p-jal | 4.99x | 1223 | 245 | 控制流跳转指令 |
-| rv32ui-p-simple | 5.03x | 1036 | 206 | 基础 ALU 运算 |
-| rv32ui-p-auipc | 5.06x | 1256 | 248 | PC相关立即数加载。本身不访问数据内存，仅享受 I-Cache 收益 |
+| test | speedup | cycles_nocache | cycles_p10 |
+|---|---:|---:|---:|
+| rv32ui-p-lh | 4.53x | 3864 | 853 |
+| rv32ui-p-lhu | 4.60x | 3963 | 862 |
+| rv32ui-p-jal | 4.99x | 1223 | 245 |
+| rv32ui-p-simple | 5.03x | 1036 | 206 |
+| rv32ui-p-auipc | 5.06x | 1256 | 248 |
 
 ## 4. Benchmark 观察
 
-| case | cycles | instrs | i_hit | d_hit | stall | cache_stall | hazard_stall | checksum | 分析 |
-|---|---:|---:|---:|---:|---:|---:|---:|---|---|
-| hello_default | 161 | 113 | 99.15% | 95.24% | 45 | 24 | 21 | - | - |
-| matmul_cache_p10 | 277966 | 230400 | 99.98% | 99.50% | 693 | 528 | 165 | - | 矩阵乘法具有极强的空间局部性。高达 99.5% 的 D-hit 表明 Cache 完美捕捉了数组的顺序预取，成功将几百万的周期压缩至二十多万 |
-| matmul_nocache_p10 | 3151861 | 230400 | 0.00% | 0.00% | 165 | 0 | 165 | - | - |
-| quicksort_cache_default | 1972901 | 1724935 | 100.00% | 99.86% | 2228 | 2172 | 56 | e48d8e25 | 快排涉及大量内存元素的交换，属于重度读写混合场景。12倍以上的加速证实了当前 Cache 容量和替换策略非常适合该算法 |
-| quicksort_nocache | 25074548 | 1724935 | 0.00% | 0.00% | 56 | 0 | 56 | e48d8e25 | - |
-| quicksort_writethrough_p1 | 1972097 | 1724935 | 100.00% | 97.36% | 1424 | 1368 | 56 | e48d8e25 | 写透模式下，虽然 D-hit 略降至 97.36%，但总周期数几乎无变化。说明写缓冲(Write Buffer)有效隐藏了写穿透的代价 |
+| benchmark | cycles_p1 | cycles_p10 | cycles_nocache | speedup_p10 | speedup_p1 | penalty_ratio | i_hit_p10 | d_hit_p10 | stall_p10 | checksum_p10 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| hello | 143 | 161 | 1518 | 9.43x | 10.62x | 1.13x | 99.15% | 95.24% | 21 | - |
+| matmul | 277570 | 277966 | 3151861 | 11.34x | 11.36x | 1.00x | 99.98% | 99.50% | 165 | - |
+| quicksort_stress | 1971272 | 1972901 | 25074548 | 12.71x | 12.72x | 1.00x | 100.00% | 99.86% | 56 | e48d8e25 |
 
-- matmul（no-cache / cache）cycle 比: 11.34x
-- quicksort（no-cache / cache）cycle 比: 12.71x
+- benchmark 平均 speedup_p10: 11.16x；中位数: 11.34x。
+- benchmark 平均 penalty_ratio_p10_over_p1: 1.04x。
+- matmul（no-cache / p10）cycle 比: 11.34x
+- quicksort_stress（no-cache / p10）cycle 比: 12.71x
+- benchmark gate status: **PASS**
+- benchmark gate issues: 0
+- benchmark summary: `docs/benchmark/20260414/benchmark_summary.csv`
+- benchmark detail: `docs/benchmark/20260414/benchmark_detail.csv`
+- benchmark gate report: `docs/benchmark/20260414/benchmark_gate_report.md`
 
 ## 5. 图表与说明
 
 图1：rv32ui speedup 条形图
 
-![speedup](figures/full_run_20260413_speedup_bar.png)
+![speedup](figures/full_run_20260414_speedup_bar.png)
 
 - 标题：RV32UI SPEEDUP DISTRIBUTION。
 - X轴：测试索引（按 speedup 从高到低排序）。
 - Y轴：speedup 倍数（no-cache cycles / p10 cycles）。
 - 图例：蓝=非访存测试、橙=访存测试、红线=平均 speedup。
-- 说明：呈典型的平滑递减曲线。蓝色（非访存测试）和橙色（访存测试）交织，但橙色柱状图明显集中在头部（左侧高加速区），直观印证了访存指令受 Cache 惠及更深的结论。
-- 数据体现：Cache 并非仅优化少数热点，而是在全体 42 个 rv32ui 用例上提供了系统性收益。
+- 说明：该图用于识别 cache 收益分布和尾部低收益用例。
 
 图2：命中率与 speedup 散点图
 
-![hitrate_scatter](figures/full_run_20260413_hitrate_scatter.png)
+![hitrate_scatter](figures/full_run_20260414_hitrate_scatter.png)
 
 - 标题：CACHE HIT RATE VS SPEEDUP。
 - X轴：cache hit rate (%)。
 - Y轴：speedup 倍数。
 - 图例：蓝点=D-hit，橙点=I-hit。
-- 说明： I-hit（橙点）相较于 D-hit（蓝点）呈现出更陡峭的线性上升趋势，佐证了流水线对指令获取延迟的敏感性。
-- 数据体现：命中率提升与加速比之间存在稳定正相关，支持将命中率作为性能回归门禁指标。
+- 说明：用于观察命中率提升与性能收益的相关关系。
 
 图3：benchmark cycles 对比（对数）
 
-![benchmark_cycles](figures/full_run_20260413_benchmark_cycles_log.png)
+![benchmark_cycles](figures/full_run_20260414_benchmark_cycles_log.png)
 
 - 标题：BENCHMARK CYCLES (LOG SCALE)。
 - X轴：benchmark case 索引。
 - Y轴：log10(cycles)。
 - 图例：不同颜色对应不同 benchmark case。
-- 说明：使用对数坐标 (Log Scale) 清晰地展示了 nocache 的百万级周期柱体向开启 Cache 后的十万级柱体产生的“断崖式”下降。
-- 数据体现：在真实 workload（matmul/quicksort）上，Cache 收益保持双位数倍率，说明优化效果可迁移到非微基准场景。
+- 说明：对数坐标可在同图中比较百万级与百级 workload。
 
 ## 6. Web smoke
 
 - 健康检查响应：
 
-{"ok": true, "clients": 0, "buffered_lines": 0, "total_lines": 0, "last_cycle": -1, "child_pid": null, "child_running": false, "ts": 1775732411}
+{"status":"UNKNOWN","reason":"trace_server not sampled in this run"}
 
 - 首页首行：<!doctype html>（HTTP 200）
 
-## 7. 产物索引
+## 7. 磁盘占用（清理前）
+
+### 核心目录占用
+
+- 7.7M	build
+- 36K	tmp
+- 240K	docs
+
+### 根目录 Top10
+
+- 7.7M	./build
+- 4.2M	./riscv-tests
+- 240K	./docs
+- 208K	./archive
+- 204K	./src
+- 176K	./tools
+- 96K	./tests
+- 64K	./web
+- 52K	./benchmarks
+- 36K	./tmp
+
+## 8. 产物索引
 
 - [docs/rv32ui_perf_full_p1.csv](rv32ui_perf_full_p1.csv)
 - [docs/rv32ui_perf_full_p10.csv](rv32ui_perf_full_p10.csv)
 - [docs/rv32ui_perf_full_nocache.csv](rv32ui_perf_full_nocache.csv)
-- [docs/full_test_summary_20260413.csv](full_test_summary_20260413.csv)
-- [docs/figures/full_run_20260413_speedup_bar.png](figures/full_run_20260413_speedup_bar.png)
-- [docs/figures/full_run_20260413_hitrate_scatter.png](figures/full_run_20260413_hitrate_scatter.png)
-- [docs/figures/full_run_20260413_benchmark_cycles_log.png](figures/full_run_20260413_benchmark_cycles_log.png)
+- [docs/full_test_summary_20260414.csv](full_test_summary_20260414.csv)
+- [docs/figures/full_run_20260414_speedup_bar.png](figures/full_run_20260414_speedup_bar.png)
+- [docs/figures/full_run_20260414_hitrate_scatter.png](figures/full_run_20260414_hitrate_scatter.png)
+- [docs/figures/full_run_20260414_benchmark_cycles_log.png](figures/full_run_20260414_benchmark_cycles_log.png)
 - [docs/cache_matrix/20260413/policy_summary.csv](cache_matrix/20260413/policy_summary.csv)
 - [docs/cache_matrix/20260413/matrix_detail.csv](cache_matrix/20260413/matrix_detail.csv)
 - [docs/cache_matrix/20260413/gate_checks.csv](cache_matrix/20260413/gate_checks.csv)
 - [docs/cache_matrix/20260413/gate_result.json](cache_matrix/20260413/gate_result.json)
 - [docs/cache_matrix/20260413/gate_report.md](cache_matrix/20260413/gate_report.md)
+- [docs/benchmark/20260414/benchmark_p1.csv](benchmark/20260414/benchmark_p1.csv)
+- [docs/benchmark/20260414/benchmark_p10.csv](benchmark/20260414/benchmark_p10.csv)
+- [docs/benchmark/20260414/benchmark_nocache.csv](benchmark/20260414/benchmark_nocache.csv)
+- [docs/benchmark/20260414/benchmark_detail.csv](benchmark/20260414/benchmark_detail.csv)
+- [docs/benchmark/20260414/benchmark_summary.csv](benchmark/20260414/benchmark_summary.csv)
+- [docs/benchmark/20260414/benchmark_gate_checks.csv](benchmark/20260414/benchmark_gate_checks.csv)
+- [docs/benchmark/20260414/benchmark_gate_result.json](benchmark/20260414/benchmark_gate_result.json)
+- [docs/benchmark/20260414/benchmark_gate_report.md](benchmark/20260414/benchmark_gate_report.md)
 - [tmp/full_run_20260413/ctest_full.log](../tmp/full_run_20260413/ctest_full.log)
-- [tmp/full_run_20260409/rv32ui_p1.log](../tmp/full_run_20260409/rv32ui_p1.log)
-- [tmp/full_run_20260409/rv32ui_p10.log](../tmp/full_run_20260409/rv32ui_p10.log)
-- [tmp/full_run_20260409/rv32ui_nocache.log](../tmp/full_run_20260409/rv32ui_nocache.log)
-- [tmp/full_run_20260409/benchmark_rcs.csv](../tmp/full_run_20260409/benchmark_rcs.csv)
+
+## 9. 文件整理与清理建议
+
+### 9.1 建议归档（阶段性成果）
+
+- 建议目录：`archive/`（按 `stage-*` 分组，必要时在目录名加日期前缀）。
+- 建议归档：`tmp/*.log`、`tmp/fail_debug/*.out`、阶段性脚本与旧对比产物。
+- 建议归档说明文件包含：阶段目标、来源命令、时间、输入输出文件、复现方式。
+
+### 9.2 可立即删除（可重建）
+
+- `build/`（当前约 7.7M）：CMake 构建产物，可重新编译恢复。
+- `Testing/`（当前约 -）：CTest 运行缓存。
+- `tmp/full_run_20260413`（属于 `tmp/` 的一部分，当前约 36K）：本轮原始日志目录。
+
+### 9.3 不建议删除
+
+- `src/`、`tests/`、`CMakeLists.txt`、`test_all.sh`：核心代码与测试入口。
+- `riscv-tests/`：官方 ISA 用例子模块。
+- `docs/FULL_TEST_PERFORMANCE_REPORT.md`、`docs/full_test_summary_*.csv`、`docs/figures/*.png`：最终可追溯结果。
+- `benchmarks/*.elf` 与 `benchmarks/quicksort_stress.c`：基准复现实验入口。

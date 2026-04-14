@@ -1,0 +1,2 @@
+Hello from benchmark
+Cycles: 143, Instrs: 113, I-Cache Hit: 99.15%, D-Cache Hit: 95.24%, I-Miss: 1, D-Miss: 1, I-Evict: 0, D-Evict: 0, I-WB: 0, D-WB: 0, I-ColdMiss: 1, I-ConflictMiss: 0, I-CapacityMiss: 0, D-ColdMiss: 1, D-ConflictMiss: 0, D-CapacityMiss: 0, Stall: 27, CacheStall: 6, HazardStall: 21

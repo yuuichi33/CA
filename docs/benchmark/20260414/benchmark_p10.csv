@@ -1,0 +1,4 @@
+benchmark,profile,ms,rc,cycles,instrs,i_cache_hit_pct,d_cache_hit_pct,stall,cache_stall,hazard_stall,i_cold_miss,i_conflict_miss,i_capacity_miss,d_cold_miss,d_conflict_miss,d_capacity_miss,checksum,log_path
+hello,p10,64,0,161,113,99.15,95.24,21,24,21,1,0,0,1,0,0,,tmp/benchmark_run_20260414/hello_p10.log
+matmul,p10,173,0,277966,230400,99.98,99.50,165,528,165,43,0,0,51,0,0,,tmp/benchmark_run_20260414/matmul_p10.log
+quicksort_stress,p10,732,0,1972901,1724935,100.00,99.86,56,2172,56,19,0,0,267,27,182,e48d8e25,tmp/benchmark_run_20260414/quicksort_stress_p10.log

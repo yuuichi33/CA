@@ -25,18 +25,31 @@ This catalog explains what each markdown/csv/json/figure artifact is for and whe
 
 | File | Type | Purpose |
 |---|---|---|
-| `full_test_summary_20260413.csv` | csv | Normalized per-test summary generated from current full report run. |
+| `full_test_summary_20260414.csv` | csv | Normalized per-test summary generated from current full report run. |
 | `rv32ui_perf_full_p1.csv` | csv | rv32ui results with cache enabled and penalty=1. |
 | `rv32ui_perf_full_p10.csv` | csv | rv32ui results with cache enabled and penalty=10. |
 | `rv32ui_perf_full_nocache.csv` | csv | rv32ui results with cache disabled baseline. |
+
+### 1.2.1 Current benchmark datasets
+
+Current benchmark folder: `benchmark/20260414/`
+
+- `benchmark_p1.csv`
+- `benchmark_p10.csv`
+- `benchmark_nocache.csv`
+- `benchmark_detail.csv`
+- `benchmark_summary.csv`
+- `benchmark_gate_checks.csv`
+- `benchmark_gate_result.json`
+- `benchmark_gate_report.md`
 
 ### 1.3 Current figures
 
 | File | Type | Purpose |
 |---|---|---|
-| `figures/full_run_20260413_speedup_bar.png` | figure | Distribution of rv32ui speedup under p10 vs no-cache. |
-| `figures/full_run_20260413_hitrate_scatter.png` | figure | Correlation view between hit rate and speedup. |
-| `figures/full_run_20260413_benchmark_cycles_log.png` | figure | Benchmark cycle comparison on log scale. |
+| `figures/full_run_20260414_speedup_bar.png` | figure | Distribution of rv32ui speedup under p10 vs no-cache. |
+| `figures/full_run_20260414_hitrate_scatter.png` | figure | Correlation view between hit rate and speedup. |
+| `figures/full_run_20260414_benchmark_cycles_log.png` | figure | Benchmark cycle comparison on log scale. |
 
 ### 1.4 Cache matrix and gate outputs
 
@@ -78,7 +91,8 @@ Current baseline folder: `cache_matrix/20260413/`
 
 | Version tag | Status | Main summary | Figure set | Cache matrix |
 |---|---|---|---|---|
-| `20260413` | current | `docs/full_test_summary_20260413.csv` | `docs/figures/full_run_20260413_*.png` | `docs/cache_matrix/20260413/` |
+| `20260414` | current | `docs/full_test_summary_20260414.csv` | `docs/figures/full_run_20260414_*.png` | `docs/cache_matrix/20260413/` |
+| `20260413` | recent | `docs/full_test_summary_20260413.csv` | `docs/figures/full_run_20260413_*.png` | `docs/cache_matrix/20260413/` |
 | `20260409` | historical | `archive/docs-history/csv-legacy/full_test_summary_20260409.csv` | `archive/docs-history/figures/full_run_20260409_*.png` | stage baseline logs in `archive/stage-04-full-run-baseline/` |
 
 ## 4. Stage Archive (root archive)

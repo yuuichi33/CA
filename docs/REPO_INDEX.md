@@ -1,4 +1,4 @@
-# Repository Index（2026-04-13）
+# Repository Index（2026-04-14）
 
 本文档用于快速定位仓库根目录及核心子目录。
 
@@ -23,8 +23,9 @@
   - `docs/rv32ui_perf_full_p1.csv`
   - `docs/rv32ui_perf_full_p10.csv`
   - `docs/rv32ui_perf_full_nocache.csv`
-  - `docs/full_test_summary_20260413.csv`
+  - `docs/full_test_summary_20260414.csv`
 - Cache 门禁：`docs/cache_matrix/20260413/`
+- Benchmark 数据与门禁：`docs/benchmark/20260414/`
 - 汇报资料：`docs/second/`
 
 ## 3. 历史归档入口

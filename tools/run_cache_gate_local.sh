@@ -9,12 +9,18 @@ CYCLES=2000000
 OUT_DIR=""
 BASELINE="wb_wa"
 SUMMARY_PATH=""
+BENCH_CYCLES=50000000
+BENCH_OUT_DIR=""
+BENCH_SUMMARY_PATH=""
 ALLOW_WARN=0
 SKIP_BUILD=0
 SKIP_CTEST=0
 SKIP_MATRIX=0
+SKIP_BENCHMARK=0
+SKIP_BENCH_GATE=0
 
 GATE_ARGS=()
+BENCH_GATE_ARGS=()
 
 usage() {
   cat <<'EOF'
@@ -26,10 +32,15 @@ Options:
   --out-dir <path>                 Matrix output dir (default: docs/cache_matrix/<run-tag>)
   --baseline <policy>              Gate baseline policy (default: wb_wa)
   --summary <path>                 Use existing policy_summary.csv path
+  --bench-cycles <n>               Cycle limit for benchmark runs (default: 50000000)
+  --bench-out-dir <path>           Benchmark output dir (default: docs/benchmark/<run-tag>)
+  --bench-summary <path>           Use existing benchmark_summary.csv path
   --allow-warn                     Treat WARN as pass (default: WARN blocks)
   --skip-build                     Skip cmake configure/build step
   --skip-ctest                     Skip ctest step
   --skip-matrix                    Skip matrix run, only check gate using summary
+  --skip-benchmark                 Skip benchmark run
+  --skip-benchmark-gate            Skip benchmark gate check
 
 Gate threshold overrides (forwarded to check_cache_gate.py):
   --max-cycle-regress-pct <f>
@@ -37,10 +48,17 @@ Gate threshold overrides (forwarded to check_cache_gate.py):
   --max-dhit-drop-pct <f>
   --min-cache-stall-ratio <f>
 
+Benchmark gate threshold overrides (forwarded to check_benchmark_gate.py):
+  --bench-fail-min-speedup-p10 <f>
+  --bench-warn-min-speedup-p10 <f>
+  --bench-fail-max-penalty-ratio <f>
+  --bench-warn-max-penalty-ratio <f>
+
 Examples:
   ./tools/run_cache_gate_local.sh --run-tag 20260413
   ./tools/run_cache_gate_local.sh --skip-build --skip-ctest --skip-matrix \
     --summary docs/cache_matrix/20260413/policy_summary.csv
+  ./tools/run_cache_gate_local.sh --run-tag 20260414 --bench-cycles 50000000
 EOF
 }
 
@@ -66,6 +84,18 @@ while [[ $# -gt 0 ]]; do
       SUMMARY_PATH="$2"
       shift 2
       ;;
+    --bench-cycles)
+      BENCH_CYCLES="$2"
+      shift 2
+      ;;
+    --bench-out-dir)
+      BENCH_OUT_DIR="$2"
+      shift 2
+      ;;
+    --bench-summary)
+      BENCH_SUMMARY_PATH="$2"
+      shift 2
+      ;;
     --allow-warn)
       ALLOW_WARN=1
       shift
@@ -82,8 +112,20 @@ while [[ $# -gt 0 ]]; do
       SKIP_MATRIX=1
       shift
       ;;
+    --skip-benchmark)
+      SKIP_BENCHMARK=1
+      shift
+      ;;
+    --skip-benchmark-gate)
+      SKIP_BENCH_GATE=1
+      shift
+      ;;
     --max-cycle-regress-pct|--max-ihit-drop-pct|--max-dhit-drop-pct|--min-cache-stall-ratio)
       GATE_ARGS+=("$1" "$2")
+      shift 2
+      ;;
+    --bench-fail-min-speedup-p10|--bench-warn-min-speedup-p10|--bench-fail-max-penalty-ratio|--bench-warn-max-penalty-ratio)
+      BENCH_GATE_ARGS+=("--${1#--bench-}" "$2")
       shift 2
       ;;
     -h|--help)
@@ -100,6 +142,10 @@ done
 
 if [[ -z "$OUT_DIR" ]]; then
   OUT_DIR="docs/cache_matrix/${RUN_TAG}"
+fi
+
+if [[ -z "$BENCH_OUT_DIR" ]]; then
+  BENCH_OUT_DIR="docs/benchmark/${RUN_TAG}"
 fi
 
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
@@ -152,14 +198,61 @@ GATE_RC=$?
 set -e
 
 if [[ "$GATE_RC" -eq 1 && "$ALLOW_WARN" -eq 1 ]]; then
-  echo "[gate-local] gate WARN tolerated by --allow-warn"
-  exit 0
-fi
-
-if [[ "$GATE_RC" -ne 0 ]]; then
-  echo "[gate-local] gate blocked with rc=$GATE_RC" >&2
+  echo "[gate-local] cache gate WARN tolerated by --allow-warn"
+elif [[ "$GATE_RC" -ne 0 ]]; then
+  echo "[gate-local] cache gate blocked with rc=$GATE_RC" >&2
   exit "$GATE_RC"
 fi
 
-echo "[gate-local] gate PASS"
-echo "[gate-local] artifacts: ${SUMMARY_DIR}/policy_summary.csv, ${OUTPUT_PREFIX}_result.json, ${OUTPUT_PREFIX}_report.md"
+if [[ "$SKIP_BENCHMARK" -eq 0 ]]; then
+  echo "[gate-local] running benchmark profiles"
+  bash tools/run_benchmark_profiles.sh --run-tag "$RUN_TAG" --cycles "$BENCH_CYCLES" --out-dir "$BENCH_OUT_DIR"
+else
+  echo "[gate-local] skip benchmark"
+fi
+
+if [[ -z "$BENCH_SUMMARY_PATH" ]]; then
+  BENCH_SUMMARY_PATH="${BENCH_OUT_DIR}/benchmark_summary.csv"
+fi
+
+BENCH_SUMMARY_DIR=""
+BENCH_OUTPUT_PREFIX=""
+
+if [[ "$SKIP_BENCH_GATE" -eq 0 ]]; then
+  if [[ ! -f "$BENCH_SUMMARY_PATH" ]]; then
+    echo "[gate-local] benchmark summary not found: $BENCH_SUMMARY_PATH" >&2
+    exit 4
+  fi
+
+  if [[ "$BENCH_SUMMARY_PATH" == *.csv ]]; then
+    BENCH_SUMMARY_DIR="$(cd "$(dirname "$BENCH_SUMMARY_PATH")" && pwd)"
+  else
+    BENCH_SUMMARY_DIR="$(cd "$BENCH_SUMMARY_PATH" && pwd)"
+  fi
+
+  BENCH_OUTPUT_PREFIX="${BENCH_SUMMARY_DIR}/benchmark_gate"
+
+  echo "[gate-local] evaluating benchmark gate"
+  set +e
+  python3 tools/check_benchmark_gate.py \
+    --summary "$BENCH_SUMMARY_PATH" \
+    --output-prefix "$BENCH_OUTPUT_PREFIX" \
+    "${BENCH_GATE_ARGS[@]}"
+  BENCH_GATE_RC=$?
+  set -e
+
+  if [[ "$BENCH_GATE_RC" -eq 1 && "$ALLOW_WARN" -eq 1 ]]; then
+    echo "[gate-local] benchmark gate WARN tolerated by --allow-warn"
+  elif [[ "$BENCH_GATE_RC" -ne 0 ]]; then
+    echo "[gate-local] benchmark gate blocked with rc=$BENCH_GATE_RC" >&2
+    exit "$BENCH_GATE_RC"
+  fi
+else
+  echo "[gate-local] skip benchmark gate"
+fi
+
+echo "[gate-local] cache gate PASS"
+echo "[gate-local] artifacts(cache): ${SUMMARY_DIR}/policy_summary.csv, ${OUTPUT_PREFIX}_result.json, ${OUTPUT_PREFIX}_report.md"
+if [[ -n "$BENCH_SUMMARY_DIR" ]]; then
+  echo "[gate-local] artifacts(benchmark): ${BENCH_SUMMARY_DIR}/benchmark_summary.csv, ${BENCH_OUTPUT_PREFIX}_result.json, ${BENCH_OUTPUT_PREFIX}_report.md"
+fi

@@ -1,6 +1,6 @@
 # Cache Gate 使用说明
 
-本文档说明如何在本地执行 cache gate、如何调节阈值，以及后续接入 CI 的推荐做法。
+本文档说明如何在本地执行 cache gate + benchmark gate、如何调节阈值，以及后续接入 CI 的推荐做法。
 
 ## 1. 本地一键门禁（阻断模式）
 
@@ -14,6 +14,8 @@ cd /home/ys/camycpu
 2. ctest
 3. run_cache_matrix.sh（5 组策略）
 4. check_cache_gate.py（判定 PASS/WARN/FAIL）
+5. run_benchmark_profiles.sh（benchmark 三配置跑数）
+6. check_benchmark_gate.py（benchmark PASS/WARN/FAIL）
 
 退出码策略：
 - PASS -> 0
@@ -28,12 +30,13 @@ cd /home/ys/camycpu
 
 ## 2. 快速复用已有矩阵结果
 
-当 `policy_summary.csv` 已存在时，可跳过 build/ctest/matrix：
+当 `policy_summary.csv` 与 `benchmark_summary.csv` 已存在时，可跳过 build/ctest/matrix/benchmark：
 
 ```bash
 ./tools/run_cache_gate_local.sh \
-  --skip-build --skip-ctest --skip-matrix \
-  --summary docs/cache_matrix/20260413/policy_summary.csv
+  --skip-build --skip-ctest --skip-matrix --skip-benchmark \
+  --summary docs/cache_matrix/20260413/policy_summary.csv \
+  --bench-summary docs/benchmark/20260414/benchmark_summary.csv
 ```
 
 ## 3. 阈值定义
@@ -72,6 +75,26 @@ python3 tools/check_cache_gate.py \
   --output-prefix docs/cache_matrix/20260413/gate
 ```
 
+### 4.3 benchmark gate 阈值
+
+| 场景 | fail-min-speedup-p10 | warn-min-speedup-p10 | fail-max-penalty-ratio | warn-max-penalty-ratio |
+|---|---:|---:|---:|---:|
+| 本地开发（宽松） | 1.00 | 1.20 | 4.00 | 3.20 |
+| 预提交（中等） | 1.20 | 1.50 | 3.00 | 2.50 |
+| CI正式门禁（严格） | 1.30 | 1.60 | 2.80 | 2.30 |
+
+命令示例：
+
+```bash
+python3 tools/check_benchmark_gate.py \
+  --summary docs/benchmark/20260414/benchmark_summary.csv \
+  --fail-min-speedup-p10 1.20 \
+  --warn-min-speedup-p10 1.50 \
+  --fail-max-penalty-ratio 3.00 \
+  --warn-max-penalty-ratio 2.50 \
+  --output-prefix docs/benchmark/20260414/benchmark_gate
+```
+
 ## 5. CI 示例（GitHub Actions）
 
 仓库已提供 workflow 模板：
@@ -93,6 +116,8 @@ python3 tools/check_cache_gate.py \
 
 由于脚本使用非零退出码表达 WARN/FAIL，CI 会自动阻断。
 
+说明：`run_cache_gate_local.sh` 当前默认会执行 cache gate + benchmark gate 两段判定。
+
 ## 6. 产物位置
 
 一次门禁执行后的关键产物：
@@ -102,6 +127,14 @@ python3 tools/check_cache_gate.py \
 - `docs/cache_matrix/<run-tag>/gate_checks.csv`
 - `docs/cache_matrix/<run-tag>/gate_result.json`
 - `docs/cache_matrix/<run-tag>/gate_report.md`
+- `docs/benchmark/<run-tag>/benchmark_p1.csv`
+- `docs/benchmark/<run-tag>/benchmark_p10.csv`
+- `docs/benchmark/<run-tag>/benchmark_nocache.csv`
+- `docs/benchmark/<run-tag>/benchmark_detail.csv`
+- `docs/benchmark/<run-tag>/benchmark_summary.csv`
+- `docs/benchmark/<run-tag>/benchmark_gate_checks.csv`
+- `docs/benchmark/<run-tag>/benchmark_gate_result.json`
+- `docs/benchmark/<run-tag>/benchmark_gate_report.md`
 
 ## 7. 常见问题
 

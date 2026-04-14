@@ -1,4 +1,4 @@
-name: Cache Gate
+name: Cache Benchmark Gate
 
 on:
   workflow_dispatch:
@@ -75,3 +75,11 @@ jobs:
             docs/cache_matrix/**/gate_checks.csv
             docs/cache_matrix/**/gate_result.json
             docs/cache_matrix/**/gate_report.md
+            docs/benchmark/**/benchmark_p1.csv
+            docs/benchmark/**/benchmark_p10.csv
+            docs/benchmark/**/benchmark_nocache.csv
+            docs/benchmark/**/benchmark_detail.csv
+            docs/benchmark/**/benchmark_summary.csv
+            docs/benchmark/**/benchmark_gate_checks.csv
+            docs/benchmark/**/benchmark_gate_result.json
+            docs/benchmark/**/benchmark_gate_report.md

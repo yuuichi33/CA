@@ -1,0 +1,4 @@
+benchmark,profile,ms,rc,cycles,instrs,i_cache_hit_pct,d_cache_hit_pct,stall,cache_stall,hazard_stall,i_cold_miss,i_conflict_miss,i_capacity_miss,d_cold_miss,d_conflict_miss,d_capacity_miss,checksum,log_path
+hello,nocache,65,0,1518,113,0.00,0.00,21,0,21,0,0,0,0,0,0,,tmp/benchmark_run_20260414/hello_nocache.log
+matmul,nocache,161,0,3151861,230400,0.00,0.00,165,0,165,0,0,0,0,0,0,,tmp/benchmark_run_20260414/matmul_nocache.log
+quicksort_stress,nocache,712,0,25074548,1724935,0.00,0.00,56,0,56,0,0,0,0,0,0,e48d8e25,tmp/benchmark_run_20260414/quicksort_stress_nocache.log

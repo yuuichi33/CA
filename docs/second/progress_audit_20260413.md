@@ -1,4 +1,4 @@
-# myCPU 项目进度审计（2026-04-13）
+# myCPU 项目进度审计（2026-04-13，更新于 2026-04-14）
 
 ## 1. 对照课程要求的完成度
 
@@ -83,7 +83,7 @@
 
 ### 3.1 正确性
 
-- CTest：19/19 通过。
+- CTest：20/20 通过。
 - rv32ui：p1/p10/no-cache 均 42/42 通过。
 
 ### 3.2 Cache 性能关键数字
@@ -93,12 +93,16 @@
 - D-hit 与 speedup 相关系数：0.475。
 - I-hit 与 speedup 相关系数：0.711。
 
-### 3.3 Benchmark（cache on vs no-cache）
+### 3.3 Benchmark（结构化三配置）
 
-| 用例 | cache on cycles | no-cache cycles | 加速比 |
+| 用例 | p10 cycles | no-cache cycles | 加速比 |
 |---|---:|---:|---:|
+| hello | 161 | 1518 | 9.43x |
 | matmul | 277966 | 3151861 | 11.34x |
-| quicksort | 1972901 | 25074548 | 12.71x |
+| quicksort_stress | 1972901 | 25074548 | 12.71x |
+
+- 数据来源：`docs/benchmark/20260414/benchmark_summary.csv`
+- benchmark gate：PASS（`docs/benchmark/20260414/benchmark_gate_result.json`）
 
 ### 3.4 Cache 矩阵回归与门禁（20260413）
 
@@ -140,7 +144,7 @@
 ### 4.2 门禁执行链路（已落地）
 
 1. 本地阻断入口（已完成）
-   - 新增 `tools/run_cache_gate_local.sh`，串联 build、ctest、matrix、gate 全链路。
+   - 新增 `tools/run_cache_gate_local.sh`，串联 build、ctest、matrix、cache gate、benchmark gate 全链路。
    - 默认策略：PASS=0，WARN/FAIL 非零阻断。
 2. CI 就绪模板（已完成）
    - 新增 `.github/workflows/cache-gate.yml`（当前手动触发）。

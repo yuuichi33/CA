@@ -94,10 +94,20 @@ def parse_args():
         default="",
         help="Optional gate output prefix (without _result.json suffix).",
     )
+    parser.add_argument(
+        "--benchmark-dir",
+        default="",
+        help="Optional benchmark dir, default docs/benchmark/<run-tag> when present.",
+    )
+    parser.add_argument(
+        "--benchmark-gate-prefix",
+        default="",
+        help="Optional benchmark gate prefix (without _result.json suffix).",
+    )
     return parser.parse_args()
 
 
-def build_paths(run_tag, run_dir, cache_matrix_dir, gate_prefix):
+def build_paths(run_tag, run_dir, cache_matrix_dir, gate_prefix, benchmark_dir, benchmark_gate_prefix):
     resolved_run_dir = run_dir or os.path.join(ROOT, "tmp", f"full_run_{run_tag}")
     resolved_matrix_dir = cache_matrix_dir
     if not resolved_matrix_dir:
@@ -108,11 +118,22 @@ def build_paths(run_tag, run_dir, cache_matrix_dir, gate_prefix):
     if not resolved_gate_prefix and resolved_matrix_dir:
         resolved_gate_prefix = os.path.join(resolved_matrix_dir, "gate")
 
+    resolved_benchmark_dir = benchmark_dir
+    if not resolved_benchmark_dir:
+        guess_bench_dir = os.path.join(ROOT, "docs", "benchmark", run_tag)
+        if os.path.isdir(guess_bench_dir):
+            resolved_benchmark_dir = guess_bench_dir
+
+    resolved_benchmark_gate_prefix = benchmark_gate_prefix
+    if not resolved_benchmark_gate_prefix and resolved_benchmark_dir:
+        resolved_benchmark_gate_prefix = os.path.join(resolved_benchmark_dir, "benchmark_gate")
+
     fig_dir = os.path.join(ROOT, "docs", "figures")
     return {
         "run_tag": run_tag,
         "run_dir": resolved_run_dir,
         "matrix_dir": resolved_matrix_dir,
+        "benchmark_dir": resolved_benchmark_dir,
         "p1_csv": os.path.join(ROOT, "docs", "rv32ui_perf_full_p1.csv"),
         "p10_csv": os.path.join(ROOT, "docs", "rv32ui_perf_full_p10.csv"),
         "nc_csv": os.path.join(ROOT, "docs", "rv32ui_perf_full_nocache.csv"),
@@ -132,6 +153,14 @@ def build_paths(run_tag, run_dir, cache_matrix_dir, gate_prefix):
         "gate_checks": (resolved_gate_prefix + "_checks.csv") if resolved_gate_prefix else "",
         "gate_result": (resolved_gate_prefix + "_result.json") if resolved_gate_prefix else "",
         "gate_report": (resolved_gate_prefix + "_report.md") if resolved_gate_prefix else "",
+        "benchmark_p1": os.path.join(resolved_benchmark_dir, "benchmark_p1.csv") if resolved_benchmark_dir else "",
+        "benchmark_p10": os.path.join(resolved_benchmark_dir, "benchmark_p10.csv") if resolved_benchmark_dir else "",
+        "benchmark_nocache": os.path.join(resolved_benchmark_dir, "benchmark_nocache.csv") if resolved_benchmark_dir else "",
+        "benchmark_detail": os.path.join(resolved_benchmark_dir, "benchmark_detail.csv") if resolved_benchmark_dir else "",
+        "benchmark_summary": os.path.join(resolved_benchmark_dir, "benchmark_summary.csv") if resolved_benchmark_dir else "",
+        "benchmark_gate_checks": (resolved_benchmark_gate_prefix + "_checks.csv") if resolved_benchmark_gate_prefix else "",
+        "benchmark_gate_result": (resolved_benchmark_gate_prefix + "_result.json") if resolved_benchmark_gate_prefix else "",
+        "benchmark_gate_report": (resolved_benchmark_gate_prefix + "_report.md") if resolved_benchmark_gate_prefix else "",
         "bench_logs": {
             "hello_default": os.path.join(resolved_run_dir, "hello_default.log"),
             "matmul_cache_p10": os.path.join(resolved_run_dir, "matmul_cache_p10.log"),
@@ -216,6 +245,8 @@ def is_mem_test(name):
 
 
 def parse_ctest(log_path):
+    if not log_path or not os.path.exists(log_path):
+        return {"pass_pct": 0, "failed": -1, "total": -1}
     with open(log_path, "r", encoding="utf-8") as f:
         txt = f.read()
     m = re.search(r"(\d+)% tests passed, (\d+) tests failed out of (\d+)", txt)
@@ -229,6 +260,8 @@ def parse_ctest(log_path):
 
 
 def parse_bench_rcs(path):
+    if not path or not os.path.exists(path):
+        return {}
     out = {}
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.reader(f)
@@ -250,6 +283,8 @@ def parse_perf_line(log_path):
         "hazard_stall": 0,
         "checksum": "",
     }
+    if not log_path or not os.path.exists(log_path):
+        return data
     with open(log_path, "r", encoding="utf-8") as f:
         lines = [ln.strip() for ln in f if ln.strip()]
     for ln in lines:
@@ -572,6 +607,8 @@ def parse_du_size_by_name(lines):
 
 
 def read_lines(path):
+    if not path or not os.path.exists(path):
+        return []
     with open(path, "r", encoding="utf-8") as f:
         return [ln.rstrip() for ln in f if ln.strip()]
 
@@ -592,7 +629,14 @@ def read_optional_json(path):
 
 def main():
     args = parse_args()
-    paths = build_paths(args.run_tag, args.run_dir, args.cache_matrix_dir, args.gate_prefix)
+    paths = build_paths(
+        args.run_tag,
+        args.run_dir,
+        args.cache_matrix_dir,
+        args.gate_prefix,
+        args.benchmark_dir,
+        args.benchmark_gate_prefix,
+    )
 
     ensure_dir(paths["fig_dir"])
 
@@ -643,14 +687,86 @@ def main():
         )
 
     ctest = parse_ctest(paths["ctest_log"])
-    bench_rc = parse_bench_rcs(paths["bench_rc"])
 
-    bench_items = []
-    for name, p in paths["bench_logs"].items():
-        d = parse_perf_line(p)
-        d["name"] = name
-        d["rc"] = bench_rc.get(name, -1)
-        bench_items.append(d)
+    benchmark_summary_rows = read_optional_csv_list(paths["benchmark_summary"])
+    benchmark_detail_rows = read_optional_csv_list(paths["benchmark_detail"])
+    benchmark_gate_result = read_optional_json(paths["benchmark_gate_result"])
+
+    benchmark_rows = []
+    for row in benchmark_summary_rows:
+        benchmark_rows.append(
+            {
+                "benchmark": row.get("benchmark", "-"),
+                "rc_p1": to_int(row.get("rc_p1"), 127),
+                "rc_p10": to_int(row.get("rc_p10"), 127),
+                "rc_nocache": to_int(row.get("rc_nocache"), 127),
+                "ms_p1": to_int(row.get("ms_p1")),
+                "ms_p10": to_int(row.get("ms_p10")),
+                "ms_nocache": to_int(row.get("ms_nocache")),
+                "cycles_p1": to_int(row.get("cycles_p1")),
+                "cycles_p10": to_int(row.get("cycles_p10")),
+                "cycles_nocache": to_int(row.get("cycles_nocache")),
+                "instrs_p1": to_int(row.get("instrs_p1")),
+                "instrs_p10": to_int(row.get("instrs_p10")),
+                "instrs_nocache": to_int(row.get("instrs_nocache")),
+                "i_hit_p10": to_float(row.get("i_hit_p10")),
+                "d_hit_p10": to_float(row.get("d_hit_p10")),
+                "stall_p10": to_int(row.get("stall_p10")),
+                "cache_stall_p10": to_int(row.get("cache_stall_p10")),
+                "hazard_stall_p10": to_int(row.get("hazard_stall_p10")),
+                "i_cold_miss_p10": to_int(row.get("i_cold_miss_p10")),
+                "i_conflict_miss_p10": to_int(row.get("i_conflict_miss_p10")),
+                "i_capacity_miss_p10": to_int(row.get("i_capacity_miss_p10")),
+                "d_cold_miss_p10": to_int(row.get("d_cold_miss_p10")),
+                "d_conflict_miss_p10": to_int(row.get("d_conflict_miss_p10")),
+                "d_capacity_miss_p10": to_int(row.get("d_capacity_miss_p10")),
+                "speedup_p10": to_float(row.get("speedup_p10")),
+                "speedup_p1": to_float(row.get("speedup_p1")),
+                "penalty_ratio": to_float(row.get("penalty_ratio_p10_over_p1")),
+                "checksum_p10": row.get("checksum_p10", ""),
+            }
+        )
+    benchmark_rows = sorted(benchmark_rows, key=lambda x: x["benchmark"])
+
+    legacy_bench_items = []
+    if not benchmark_rows:
+        bench_rc = parse_bench_rcs(paths["bench_rc"])
+        for name, p in paths["bench_logs"].items():
+            d = parse_perf_line(p)
+            d["name"] = name
+            d["rc"] = bench_rc.get(name, -1)
+            legacy_bench_items.append(d)
+
+    bench_chart_items = []
+    if benchmark_detail_rows:
+        profile_order = {"p1": 0, "p10": 1, "nocache": 2}
+        for row in sorted(
+            benchmark_detail_rows,
+            key=lambda x: (x.get("benchmark", ""), profile_order.get(x.get("profile", ""), 99)),
+        ):
+            bench_chart_items.append(
+                {
+                    "name": f"{row.get('benchmark', '-')}_{row.get('profile', '-')}",
+                    "cycles": to_int(row.get("cycles")),
+                }
+            )
+    elif benchmark_rows:
+        profile_fields = [
+            ("p1", "cycles_p1"),
+            ("p10", "cycles_p10"),
+            ("nocache", "cycles_nocache"),
+        ]
+        for br in benchmark_rows:
+            for profile, field in profile_fields:
+                bench_chart_items.append(
+                    {
+                        "name": f"{br['benchmark']}_{profile}",
+                        "cycles": to_int(br.get(field)),
+                    }
+                )
+    else:
+        for bi in legacy_bench_items:
+            bench_chart_items.append({"name": bi["name"], "cycles": bi["cycles"]})
 
     matrix_rows = read_optional_csv_list(paths["matrix_summary"])
     gate_result = read_optional_json(paths["gate_result"])
@@ -706,7 +822,7 @@ def main():
 
     render_speedup_bar(paths["speedup_fig"], rows_sorted)
     render_scatter(paths["scatter_fig"], rows)
-    render_bench_cycles(paths["bench_fig"], bench_items)
+    render_bench_cycles(paths["bench_fig"], bench_chart_items)
 
     with open(paths["summary_csv"], "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -768,8 +884,11 @@ def main():
 
     disk_core_lines = read_lines(paths["disk_core"])
     disk_top_lines = read_lines(paths["disk_top"])
-    with open(paths["web_health"], "r", encoding="utf-8") as f:
-        web_health = f.read().strip()
+    if paths["web_health"] and os.path.exists(paths["web_health"]):
+        with open(paths["web_health"], "r", encoding="utf-8") as f:
+            web_health = f.read().strip()
+    else:
+        web_health = "{\"status\":\"UNKNOWN\",\"reason\":\"web_health.json missing\"}"
 
     du_core = parse_du_size_by_name(disk_core_lines)
     build_size = du_core.get("build", "-")
@@ -777,6 +896,9 @@ def main():
     testing_size = du_core.get("Testing", "-")
 
     run_dir_rel = os.path.relpath(paths["run_dir"], ROOT).replace("\\", "/")
+    benchmark_dir_rel = ""
+    if paths["benchmark_dir"]:
+        benchmark_dir_rel = os.path.relpath(paths["benchmark_dir"], ROOT).replace("\\", "/")
 
     lines = []
     lines.append("# FULL TEST PERFORMANCE REPORT")
@@ -792,9 +914,14 @@ def main():
     lines.append("| rv32ui p1 | `docs/rv32ui_perf_full_p1.csv` | cache on + penalty=1 的基线 |")
     lines.append("| rv32ui p10 | `docs/rv32ui_perf_full_p10.csv` | cache on + penalty=10 的对比组 |")
     lines.append("| rv32ui no-cache | `docs/rv32ui_perf_full_nocache.csv` | cache off 的基线组 |")
-    lines.append("| ctest 日志 | `{}/ctest_full.log` | 正确性统计（19 项） |".format(run_dir_rel))
-    lines.append("| benchmark 返回码 | `{}/benchmark_rcs.csv` | 组合场景正确性检查 |".format(run_dir_rel))
-    lines.append("| benchmark 性能日志 | `{}/{{hello,matmul,quicksort}}_*.log` | cycles/instrs/hit/stall 提取 |".format(run_dir_rel))
+    lines.append("| ctest 日志 | `{}/ctest_full.log` | 正确性统计（ctest 全量） |".format(run_dir_rel))
+    if benchmark_rows:
+        lines.append("| benchmark 汇总 | `{}/benchmark_summary.csv` | benchmark 三配置（p1/p10/no-cache）汇总统计 |".format(benchmark_dir_rel))
+        lines.append("| benchmark 明细 | `{}/benchmark_detail.csv` | benchmark profile 级明细（用于图表） |".format(benchmark_dir_rel))
+        lines.append("| benchmark 原始 CSV | `{}/benchmark_p1.csv` / `{}/benchmark_p10.csv` / `{}/benchmark_nocache.csv` | 每个 profile 的原始输出 |".format(benchmark_dir_rel, benchmark_dir_rel, benchmark_dir_rel))
+    else:
+        lines.append("| benchmark 返回码 | `{}/benchmark_rcs.csv` | 组合场景正确性检查 |".format(run_dir_rel))
+        lines.append("| benchmark 性能日志 | `{}/{{hello,matmul,quicksort}}_*.log` | cycles/instrs/hit/stall 提取 |".format(run_dir_rel))
     lines.append("")
     lines.append("### 0.2 三组配置的含义")
     lines.append("")
@@ -815,12 +942,18 @@ def main():
     lines.append("")
     lines.append("1. 按 test 名称对 p1/p10/no-cache 三份 CSV 做交集对齐。")
     lines.append("2. 逐项计算 speedup/penalty ratio，并按访存类与非访存类分组。")
-    lines.append("3. 从 benchmark 日志提取 cycles/instrs/hit/stall 指标，形成工作负载级对比。")
+    if benchmark_rows:
+        lines.append("3. 从 benchmark_summary/detail.csv 读取 cycles/hit/stall 与 speedup 指标，形成工作负载级对比。")
+    else:
+        lines.append("3. 从 benchmark 日志提取 cycles/instrs/hit/stall 指标，形成工作负载级对比。")
     lines.append("4. 生成汇总 CSV、三张 PNG 图和本 Markdown 报告。")
     lines.append("")
     lines.append("## 1. 执行范围")
     lines.append("")
-    lines.append("- ctest 全量（19 项）")
+    if ctest["total"] > 0:
+        lines.append("- ctest 全量（{} 项）".format(ctest["total"]))
+    else:
+        lines.append("- ctest 全量（以当前 build 目录为准）")
     lines.append("- rv32ui 全量（42 项）x 3 组配置：p1 / p10 / no-cache")
     lines.append("- benchmark 组合：hello、matmul（cache/no-cache）、quicksort（cache/no-cache/write-through）")
     lines.append("- Web smoke：trace_server 健康检查与首页可达")
@@ -835,10 +968,20 @@ def main():
     lines.append("- rv32ui no-cache: {}/{} 通过。".format(stats["nc_pass"], stats["count"]))
     lines.append("- benchmark 返回码：")
     lines.append("")
-    lines.append("| case | rc |")
-    lines.append("|---|---:|")
-    for bi in bench_items:
-        lines.append("| {} | {} |".format(bi["name"], bi["rc"]))
+    if benchmark_rows:
+        lines.append("| benchmark | rc_p1 | rc_p10 | rc_nocache |")
+        lines.append("|---|---:|---:|---:|")
+        for br in benchmark_rows:
+            lines.append(
+                "| {} | {} | {} | {} |".format(
+                    br["benchmark"], br["rc_p1"], br["rc_p10"], br["rc_nocache"]
+                )
+            )
+    else:
+        lines.append("| case | rc |")
+        lines.append("|---|---:|")
+        for bi in legacy_bench_items:
+            lines.append("| {} | {} |".format(bi["name"], bi["rc"]))
     lines.append("")
     lines.append("## 3. 性能统计（rv32ui）")
     lines.append("")
@@ -970,33 +1113,98 @@ def main():
     lines.append("")
     lines.append("## 4. Benchmark 观察")
     lines.append("")
-    lines.append("| case | cycles | instrs | i_hit | d_hit | stall | cache_stall | hazard_stall | checksum |")
-    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---|")
-    for bi in bench_items:
-        lines.append(
-            "| {} | {} | {} | {:.2f}% | {:.2f}% | {} | {} | {} | {} |".format(
-                bi["name"],
-                bi["cycles"],
-                bi["instrs"],
-                bi["i_hit"],
-                bi["d_hit"],
-                bi["stall"],
-                bi["cache_stall"],
-                bi["hazard_stall"],
-                bi["checksum"] if bi["checksum"] else "-",
+    if benchmark_rows:
+        lines.append("| benchmark | cycles_p1 | cycles_p10 | cycles_nocache | speedup_p10 | speedup_p1 | penalty_ratio | i_hit_p10 | d_hit_p10 | stall_p10 | checksum_p10 |")
+        lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|")
+        for br in benchmark_rows:
+            lines.append(
+                "| {} | {} | {} | {} | {:.2f}x | {:.2f}x | {:.2f}x | {:.2f}% | {:.2f}% | {} | {} |".format(
+                    br["benchmark"],
+                    br["cycles_p1"],
+                    br["cycles_p10"],
+                    br["cycles_nocache"],
+                    br["speedup_p10"],
+                    br["speedup_p1"],
+                    br["penalty_ratio"],
+                    br["i_hit_p10"],
+                    br["d_hit_p10"],
+                    br["stall_p10"],
+                    br["checksum_p10"] if br["checksum_p10"] else "-",
+                )
             )
-        )
-    lines.append("")
 
-    matmul_cache = next((b for b in bench_items if b["name"] == "matmul_cache_p10"), None)
-    matmul_nc = next((b for b in bench_items if b["name"] == "matmul_nocache_p10"), None)
-    qsort_cache = next((b for b in bench_items if b["name"] == "quicksort_cache_default"), None)
-    qsort_nc = next((b for b in bench_items if b["name"] == "quicksort_nocache"), None)
-    if matmul_cache and matmul_nc and matmul_cache["cycles"] > 0:
-        lines.append("- matmul（no-cache / cache）cycle 比: {:.2f}x".format(matmul_nc["cycles"] / matmul_cache["cycles"]))
-    if qsort_cache and qsort_nc and qsort_cache["cycles"] > 0:
-        lines.append("- quicksort（no-cache / cache）cycle 比: {:.2f}x".format(qsort_nc["cycles"] / qsort_cache["cycles"]))
-    lines.append("")
+        bench_speedups = [b["speedup_p10"] for b in benchmark_rows if b["speedup_p10"] > 0]
+        bench_penalty = [b["penalty_ratio"] for b in benchmark_rows if b["penalty_ratio"] > 0]
+        lines.append("")
+        if bench_speedups:
+            lines.append("- benchmark 平均 speedup_p10: {:.2f}x；中位数: {:.2f}x。".format(
+                statistics.mean(bench_speedups), statistics.median(bench_speedups)
+            ))
+        if bench_penalty:
+            lines.append("- benchmark 平均 penalty_ratio_p10_over_p1: {:.2f}x。".format(statistics.mean(bench_penalty)))
+
+        bench_by_name = {b["benchmark"]: b for b in benchmark_rows}
+        matmul = bench_by_name.get("matmul")
+        qsort = bench_by_name.get("quicksort_stress") or bench_by_name.get("quicksort")
+        if matmul and matmul["cycles_p10"] > 0:
+            lines.append("- matmul（no-cache / p10）cycle 比: {:.2f}x".format(matmul["cycles_nocache"] / matmul["cycles_p10"]))
+        if qsort and qsort["cycles_p10"] > 0:
+            lines.append("- quicksort_stress（no-cache / p10）cycle 比: {:.2f}x".format(qsort["cycles_nocache"] / qsort["cycles_p10"]))
+
+        if benchmark_gate_result:
+            lines.append("- benchmark gate status: **{}**".format(benchmark_gate_result.get("status", "UNKNOWN")))
+            bench_gate_issues = benchmark_gate_result.get("issues", [])
+            lines.append("- benchmark gate issues: {}".format(len(bench_gate_issues)))
+            if bench_gate_issues:
+                lines.append("")
+                lines.append("| severity | benchmark | metric | value | threshold | message |")
+                lines.append("|---|---|---|---:|---:|---|")
+                for it in bench_gate_issues[:10]:
+                    lines.append(
+                        "| {} | {} | {} | {:.4f} | {:.4f} | {} |".format(
+                            it.get("severity", "-"),
+                            it.get("benchmark", "-"),
+                            it.get("metric", "-"),
+                            to_float(it.get("value")),
+                            to_float(it.get("threshold")),
+                            it.get("message", "-"),
+                        )
+                    )
+        if paths["benchmark_summary"] and os.path.exists(paths["benchmark_summary"]):
+            lines.append("- benchmark summary: `{}`".format(os.path.relpath(paths["benchmark_summary"], ROOT).replace("\\", "/")))
+        if paths["benchmark_detail"] and os.path.exists(paths["benchmark_detail"]):
+            lines.append("- benchmark detail: `{}`".format(os.path.relpath(paths["benchmark_detail"], ROOT).replace("\\", "/")))
+        if paths["benchmark_gate_report"] and os.path.exists(paths["benchmark_gate_report"]):
+            lines.append("- benchmark gate report: `{}`".format(os.path.relpath(paths["benchmark_gate_report"], ROOT).replace("\\", "/")))
+        lines.append("")
+    else:
+        lines.append("| case | cycles | instrs | i_hit | d_hit | stall | cache_stall | hazard_stall | checksum |")
+        lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---|")
+        for bi in legacy_bench_items:
+            lines.append(
+                "| {} | {} | {} | {:.2f}% | {:.2f}% | {} | {} | {} | {} |".format(
+                    bi["name"],
+                    bi["cycles"],
+                    bi["instrs"],
+                    bi["i_hit"],
+                    bi["d_hit"],
+                    bi["stall"],
+                    bi["cache_stall"],
+                    bi["hazard_stall"],
+                    bi["checksum"] if bi["checksum"] else "-",
+                )
+            )
+        lines.append("")
+
+        matmul_cache = next((b for b in legacy_bench_items if b["name"] == "matmul_cache_p10"), None)
+        matmul_nc = next((b for b in legacy_bench_items if b["name"] == "matmul_nocache_p10"), None)
+        qsort_cache = next((b for b in legacy_bench_items if b["name"] == "quicksort_cache_default"), None)
+        qsort_nc = next((b for b in legacy_bench_items if b["name"] == "quicksort_nocache"), None)
+        if matmul_cache and matmul_nc and matmul_cache["cycles"] > 0:
+            lines.append("- matmul（no-cache / cache）cycle 比: {:.2f}x".format(matmul_nc["cycles"] / matmul_cache["cycles"]))
+        if qsort_cache and qsort_nc and qsort_cache["cycles"] > 0:
+            lines.append("- quicksort（no-cache / cache）cycle 比: {:.2f}x".format(qsort_nc["cycles"] / qsort_cache["cycles"]))
+        lines.append("")
 
     speedup_name = os.path.basename(paths["speedup_fig"])
     scatter_name = os.path.basename(paths["scatter_fig"])
@@ -1081,11 +1289,43 @@ def main():
     if paths["gate_report"] and os.path.exists(paths["gate_report"]):
         gate_report_rel = os.path.relpath(paths["gate_report"], os.path.join(ROOT, "docs")).replace("\\", "/")
         lines.append("- [docs/{}]({})".format(gate_report_rel, gate_report_rel))
-    lines.append("- [{0}/ctest_full.log](../{0}/ctest_full.log)".format(run_dir_rel))
-    lines.append("- [{0}/rv32ui_p1.log](../{0}/rv32ui_p1.log)".format(run_dir_rel))
-    lines.append("- [{0}/rv32ui_p10.log](../{0}/rv32ui_p10.log)".format(run_dir_rel))
-    lines.append("- [{0}/rv32ui_nocache.log](../{0}/rv32ui_nocache.log)".format(run_dir_rel))
-    lines.append("- [{0}/benchmark_rcs.csv](../{0}/benchmark_rcs.csv)".format(run_dir_rel))
+    if paths["benchmark_p1"] and os.path.exists(paths["benchmark_p1"]):
+        benchmark_p1_rel = os.path.relpath(paths["benchmark_p1"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(benchmark_p1_rel, benchmark_p1_rel))
+    if paths["benchmark_p10"] and os.path.exists(paths["benchmark_p10"]):
+        benchmark_p10_rel = os.path.relpath(paths["benchmark_p10"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(benchmark_p10_rel, benchmark_p10_rel))
+    if paths["benchmark_nocache"] and os.path.exists(paths["benchmark_nocache"]):
+        benchmark_nc_rel = os.path.relpath(paths["benchmark_nocache"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(benchmark_nc_rel, benchmark_nc_rel))
+    if paths["benchmark_detail"] and os.path.exists(paths["benchmark_detail"]):
+        benchmark_detail_rel = os.path.relpath(paths["benchmark_detail"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(benchmark_detail_rel, benchmark_detail_rel))
+    if paths["benchmark_summary"] and os.path.exists(paths["benchmark_summary"]):
+        benchmark_summary_rel = os.path.relpath(paths["benchmark_summary"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(benchmark_summary_rel, benchmark_summary_rel))
+    if paths["benchmark_gate_checks"] and os.path.exists(paths["benchmark_gate_checks"]):
+        benchmark_gate_checks_rel = os.path.relpath(paths["benchmark_gate_checks"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(benchmark_gate_checks_rel, benchmark_gate_checks_rel))
+    if paths["benchmark_gate_result"] and os.path.exists(paths["benchmark_gate_result"]):
+        benchmark_gate_result_rel = os.path.relpath(paths["benchmark_gate_result"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(benchmark_gate_result_rel, benchmark_gate_result_rel))
+    if paths["benchmark_gate_report"] and os.path.exists(paths["benchmark_gate_report"]):
+        benchmark_gate_report_rel = os.path.relpath(paths["benchmark_gate_report"], os.path.join(ROOT, "docs")).replace("\\", "/")
+        lines.append("- [docs/{}]({})".format(benchmark_gate_report_rel, benchmark_gate_report_rel))
+    if os.path.exists(paths["ctest_log"]):
+        lines.append("- [{0}/ctest_full.log](../{0}/ctest_full.log)".format(run_dir_rel))
+    rv32ui_p1_log = os.path.join(paths["run_dir"], "rv32ui_p1.log")
+    rv32ui_p10_log = os.path.join(paths["run_dir"], "rv32ui_p10.log")
+    rv32ui_nc_log = os.path.join(paths["run_dir"], "rv32ui_nocache.log")
+    if os.path.exists(rv32ui_p1_log):
+        lines.append("- [{0}/rv32ui_p1.log](../{0}/rv32ui_p1.log)".format(run_dir_rel))
+    if os.path.exists(rv32ui_p10_log):
+        lines.append("- [{0}/rv32ui_p10.log](../{0}/rv32ui_p10.log)".format(run_dir_rel))
+    if os.path.exists(rv32ui_nc_log):
+        lines.append("- [{0}/rv32ui_nocache.log](../{0}/rv32ui_nocache.log)".format(run_dir_rel))
+    if os.path.exists(paths["bench_rc"]):
+        lines.append("- [{0}/benchmark_rcs.csv](../{0}/benchmark_rcs.csv)".format(run_dir_rel))
     lines.append("")
 
     lines.append("## 9. 文件整理与清理建议")
