@@ -2,19 +2,20 @@
 
 ## 1. 对照课程要求的完成度
 
-| 课程要求 | 当前状态 | 结论 | 证据位置 |
-|---|---|---|---|
-| 产出可独立运行的 myCPU 模拟器 | 已完成 | 可执行文件 mycpu 已支持加载 ELF 并运行 | src/main.cpp, CMakeLists.txt |
-| 五级流水线 | 已完成 | IF/ID/EX/MEM/WB 全链路实现，含前递与冒险处理 | src/cpu/pipeline.h, src/cpu/pipeline.cpp |
-| I/D Cache | 已完成 | I-cache 与 D-cache 分离，可配置组相联、写策略、miss penalty | src/cache/simple_cache.h, src/cache/simple_cache.cpp, src/cpu/pipeline.cpp |
-| 30-40 条基础指令 | 已完成（超出） | 实现 49 条可识别指令（不含 UNKNOWN/SYSTEM 占位） | src/isa/decoder.cpp, src/cpu/pipeline.cpp |
-| 内存与地址空间模拟 | 已完成（基础） | 物理内存 + MMIO 映射 + 越界检查 + 异常上报 | src/mem/memory.cpp |
-| MMU/分页机制（基础版） | 已完成（基础） | Sv32 两级页表 + TLB + SFENCE.VMA | src/mmu/mmu.cpp, src/cpu/pipeline.cpp |
-| 中断与异常模块 | 已完成（课程可用） | ECALL/MRET/SRET、trap delegation、timer/uart interrupt | src/cpu/csr.cpp, src/cpu/pipeline.cpp |
-| 外设接口（UART、定时器） | 已完成 | UART MMIO、Timer MMIO、TOHOST semihosting 已接入 | src/periph/uart_mmio.cpp, src/periph/timer_mmio.cpp, src/periph/tohost_mmio.cpp |
-| 统一硬件接口规范 | 已完成（基础） | 统一 Device 接口与 map_device 机制 | src/mem/memory.h, src/mem/memory.cpp |
-| 完整技术报告 | 已完成 | 已有全量测试与性能报告产物 | docs/FULL_TEST_PERFORMANCE_REPORT.md, docs/BENCHMARK_REPORT.md |
-| 在模拟器上运行 miniOS/Linux | 未完成（下阶段可选） | 当前具备最小内核实验条件，但尚无完整 OS 镜像 | 现有仓库暂无 OS 目录/镜像 |
+| 课程要求 | 当前状态 | 结论 | 相较第一次汇报的改进情况和变化 | 证据位置 |
+|---|---|---|---|---|
+| 产出可独立运行的 myCPU 模拟器 | 已完成 | 可执行文件 mycpu 已支持加载 ELF 并运行 | 基础运行框架 ➡ 可独立加载 ELF 并稳定执行 | src/main.cpp, CMakeLists.txt |
+| 五级流水线 | 已完成 | IF/ID/EX/MEM/WB 全链路实现，含前递与冒险处理 | 无 | src/cpu/pipeline.h, src/cpu/pipeline.cpp |
+| I/D Cache | 已完成 | I-cache 与 D-cache 分离，可配置组相联、写策略、miss penalty | 优化分离式 I/D Cache，并完成可配置与性能可观测 | src/cache/simple_cache.h, src/cache/simple_cache.cpp, src/cpu/pipeline.cpp |
+| 30-40 条基础指令 | 已完成 | 实现 49 条可识别指令（不含 UNKNOWN/SYSTEM 占位） | 核心 RV32I 子集 ➡ 到 49 条有效指令 | src/isa/decoder.cpp, src/cpu/pipeline.cpp |
+| 内存与地址空间模拟 | 已完成（基础） | 物理内存 + MMIO 映射 + 越界检查 + 异常上报 | 纯内存读写 ➡ 地址空间与 MMIO 一体化管理 | src/mem/memory.cpp |
+| MMU/分页机制（基础版） | 已完成（基础） | Sv32 两级页表 + TLB + SFENCE.VMA | 增加可用的 Sv32 基础 MMU，并补齐 TLB 与刷新流程 | src/mmu/mmu.cpp, src/cpu/pipeline.cpp |
+| 中断与异常模块 | 已完成（课程可用） | ECALL/MRET/SRET、trap delegation、timer/uart interrupt | 基本异常处理 ➡ 可支持中断、委托与特权级返回 | src/cpu/csr.cpp, src/cpu/pipeline.cpp |
+| 外设接口（UART、定时器） | 已完成 | UART MMIO、Timer MMIO、TOHOST semihosting 已接入 | 未集成状态 ➡ 串口、定时器与 semihosting 联动 | src/periph/uart_mmio.cpp, src/periph/timer_mmio.cpp, src/periph/tohost_mmio.cpp |
+| 统一硬件接口规范 | 已完成（基础） | 统一 Device 接口与 map_device 机制 | 分散映射 ➡ 统一设备抽象，便于后续扩展与维护 | src/mem/memory.h, src/mem/memory.cpp |
+| 完整技术报告 | 已完成 | 已有全量测试与性能报告产物 | 从阶段性记录推进到可交付的完整报告与性能产物 | docs/FULL_TEST_PERFORMANCE_REPORT.md, docs/BENCHMARK_REPORT.md |
+| 可视化 | 已完成 | Web可视化，HTML + D3 的前端实现，用于展示 myCPU trace | TUI ➡ 网页 | docs/FULL_TEST_PERFORMANCE_REPORT.md, docs/BENCHMARK_REPORT.md |
+| 在模拟器上运行 miniOS/Linux | 未完成（下阶段可选） | 当前具备最小内核实验条件，但尚无完整 OS 镜像 | 尚不具备 OS 运行入口 ➡ 具备最小内核实验条件 | 现有仓库暂无 OS 目录/镜像 |
 
 结论：本阶段主目标（虚拟机 myCPU）已经达成，且在流水线、Cache、MMU、中断、外设上都达到“可演示、可测试、可量化”的状态。
 
@@ -60,6 +61,14 @@
    - 可输出 I-hit/D-hit 与 stall 分解（cache_stall/hazard_stall）。
 4. 与正确性的协同
    - 对特定直接访存路径做 flush/invalidate 协同处理，避免 cache 与直访路径不一致。
+
+| 参数名 | 含义 | 默认值与说明 |
+| :--- | :--- | :--- |
+| `cache_size` | 总容量 | **16 KB** (16384 Bytes) |
+| `line_size` | 缓存行大小 | 默认 **64 Bytes** |
+| `associativity` | 相联度 | 默认 **4 路**组相联（结构体初始化默认为 1，即 direct-mapped） |
+| `miss_latency` | 缺失延迟 | **10**（用于模拟 Cache 未命中时的内存访问周期） |
+
 
 ### 2.4 内存与 MMU
 
