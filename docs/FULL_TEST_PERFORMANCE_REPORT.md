@@ -71,12 +71,12 @@
 - p10 几何均值 speedup: 6.40x
 - p10/p1 平均 cycle 比: 1.54x
   - 物理内存延迟增加了 10 倍（p1->p10），但 CPU 整体执行周期仅增加了 1.54 倍。这证明 Cache 成功拦截了绝大部分内存访问请求，极大地“吸收”了底层的延迟惩罚，展现了优秀的迟延掩盖（Latency Masking）能力。
-- 平均执行时长 ms（p1 / p10 / no-cache）: 3000.48 / 3100.14 / 3105.24
+- 本次采样的平均执行时长 ms（p1 / p10 / no-cache）: 3000.48 / 3100.14 / 3105.24
 - 访存密集测试平均 speedup: 6.57x；非访存测试平均 speedup: 6.41x
   - 访存密集型测试的加速比显著更高，符合预期。在 no-cache 模式下，这类测试每次读写都会遭遇完整的 Memory Wall（存储墙）阻塞，而 Cache 的引入直接将这类阻塞化解，从而获得了较高的边际收益。
 - D-hit 与 speedup 相关系数: 0.475
 - I-hit 与 speedup 相关系数: 0.711
-  - corr(I-hit, speedup) > corr(D-hit, speedup)，这反映了当前五级流水线架构的核心特征：取指（IF）是整条流水线的驱动引擎。I-Cache 失效会导致整个流水线（IF/ID/EX/MEM/WB）全部陷入停顿；而 D-Cache 失效仅发生在 MEM 阶段，部分延迟可通过乱序或前递机制缓解。因此，指令命中的平稳性对整体加速比的贡献更大。
+  - corr(I-hit, speedup) > corr(D-hit, speedup)，这反映了当前五级流水线架构的核心特征：取指（IF）是整条流水线的驱动引擎。I-Cache 失效会导致整个流水线（IF/ID/EX/MEM/WB）全部陷入停顿；而 D-Cache 失效主要体现在 MEM 阶段的等待中，会直接拉长总周期。因此，指令命中的平稳性对整体加速比的贡献更大。
 
 ### Cache Stall 与 Miss 分解（p10）
 
@@ -136,8 +136,8 @@
 | nocache | 3/3 | 9409309.00 | 0.00 | 0.00 | 1.0000 |
 
 - 对比 nocache 模式下的 940 万个平均周期，开启 Cache 后周期数骤降至 75 万左右，实现了高达 11.15 倍 的综合加速比。
-- 在频繁读写的复杂算法中，wb_wa 策略的 D-Cache 命中率达到了惊人的 98.20%，显著高于其他策略的 93.95%。
-  - 原理解析：快排和矩阵乘法中存在大量的“读-修改-写”操作。wa (写分配) 确保了即便是首次写入触发了 Miss，该数据块也会被立刻载入 Cache，使得紧随其后的读取操作能够 100% 命中，从而在重负载下挤出了额外的 4% 命中率优势。
+- 在当前 benchmark 样本中，wb_wa 策略的 D-Cache 命中率为 98.20%，高于其他策略的 93.95%。
+  - 原理解析：快排和矩阵乘法中存在较多“读-修改-写”访问模式，write-allocate 更容易把首次写缺失后的数据块提前带入 Cache，从而提高后续复用命中的机会。这里描述的是当前样本下观察到的相关现象，而不是对所有 workload 的普遍结论。
 
 - benchmark matrix summary: `docs/cache_matrix/20260413/benchmark_policy_summary.csv`
 - benchmark matrix detail: `docs/cache_matrix/20260413/benchmark_matrix_detail.csv`
