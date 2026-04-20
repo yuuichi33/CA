@@ -1,4 +1,4 @@
-# Web Visualization (Step 5)
+# Web Visualization
 
 该目录是 Plain HTML + D3 的前端实现，用于展示 myCPU trace：
 - 流水线实时视图（IF/ID/EX/MEM/WB）
