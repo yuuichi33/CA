@@ -47,7 +47,7 @@ cmake --build build -j
 - `p1`: cache enabled, `--cache-penalty 1`
 - `p10`: cache enabled, `--cache-penalty 10`
 - `no-cache`: cache disabled with `--no-cache --cache-penalty 10`
-- cache 策略矩阵：`wb_wa` / `wb_nowa` / `wt_wa` / `wt_nowa` / `nocache`
+- cache-matrix：`wb_wa` / `wb_nowa` / `wt_wa` / `wt_nowa` / `nocache`
 
 ### Run steps
 
