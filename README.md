@@ -4,6 +4,10 @@ myCPU is a C++17 RISC-V simulator for teaching and micro-architecture experiment
 It implements an RV32I 5-stage pipeline with privilege support, Sv32 MMU,
 I/D cache, MMIO peripherals, ELF loading, and trace visualization.
 
+for dlut 26spring CA course final presentation `docs/second/CA_ys_260423_汇报_git.pdf`
+
+TBC.
+
 ## Features
 
 - Pipeline: IF / ID / EX / MEM / WB
