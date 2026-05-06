@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>final_report.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h2 id="高性能-rv32i-流水线模拟器设计与实现--结题报告">高性能 RV32I 流水线模拟器设计与实现--结题报告</h2>
+<h3 id="项目成员">项目成员</h3>
+<ul>
+<li>袁  善 电计2302 20231072030</li>
+<li>雷  池 电计2301 20231071319</li>
+<li>王小方 电计2301 20231071087</li>
+</ul>
+<p><strong>2026年5月6日</strong></p>
+<h3 id="1-项目摘要">1 项目摘要</h3>
+<p>本项目已完成一台可独立运行的 RV32I 模拟器 myCPU。</p>
+<p>技术栈：基于 C++17 + CMake 的 RV32I 五级流水模拟器，配套 Bash 自动化脚本与 Python 数据处理/门禁脚本，使用 RISC‑V 工具链生成 ELF，产出 CSV/JSON/PNG 报表，并通过 SSE/JSONL + HTML/JavaScript（含 D3）提供 Web 可视化与演示。</p>
+<ul>
+<li>实现：覆盖 49 条有效指令，完成五级流水、I/D Cache、Sv32 基础 MMU、异常与中断、UART/Timer 外设。</li>
+<li>验证：通过 20 项 CTest 与 42 项 rv32ui 三配置全量测试。</li>
+<li>性能：cache 在 rv32ui 提供 6.46x 平均加速，在 matmul 与 quicksort 分别达到 11.34x 和 12.71x；benchmark cache matrix 显示 wb_wa 在当前样本下综合最优并已纳入门禁。</li>
+<li>结论：本阶段主目标（虚拟机 myCPU）已经达成，基本具备最小内核实验条件。</li>
+</ul>
+<h3 id="2-项目完成情况">2 项目完成情况</h3>
+<ul>
+<li>项目仓库地址：https://github.com/yuuichi33/CA</li>
+</ul>
+<h4 id="21-对照课程要求项目完成情况">2.1 对照课程要求项目完成情况</h4>
+<table>
+<thead>
+<tr>
+<th>课程要求</th>
+<th>当前状态</th>
+<th>结论</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>产出可独立运行的 myCPU 模拟器</td>
+<td>已完成</td>
+<td>可执行文件 mycpu 已支持加载 ELF 并运行</td>
+</tr>
+<tr>
+<td>五级流水线</td>
+<td>已完成</td>
+<td>IF/ID/EX/MEM/WB 全链路实现，含前递与冒险处理</td>
+</tr>
+<tr>
+<td>I/D Cache</td>
+<td>已完成</td>
+<td>I-cache 与 D-cache 分离，可配置组相联、写策略、miss penalty</td>
+</tr>
+<tr>
+<td>30-40 条基础指令</td>
+<td>已完成</td>
+<td>实现 49 条可识别指令（不含 UNKNOWN/SYSTEM 占位）</td>
+</tr>
+<tr>
+<td>内存与地址空间模拟</td>
+<td>已完成（基础）</td>
+<td>物理内存 + MMIO 映射 + 越界检查 + 异常上报</td>
+</tr>
+<tr>
+<td>MMU/分页机制（基础版）</td>
+<td>已完成（基础）</td>
+<td>Sv32 两级页表 + TLB + SFENCE.VMA</td>
+</tr>
+<tr>
+<td>中断与异常模块</td>
+<td>已完成（课程可用）</td>
+<td>ECALL/MRET/SRET、trap delegation、timer/uart interrupt</td>
+</tr>
+<tr>
+<td>外设接口（UART、定时器）</td>
+<td>已完成</td>
+<td>UART MMIO、Timer MMIO、TOHOST semihosting 已接入</td>
+</tr>
+<tr>
+<td>统一硬件接口规范</td>
+<td>已完成（基础）</td>
+<td>统一 Device 接口与 map_device 机制</td>
+</tr>
+<tr>
+<td>完整技术报告</td>
+<td>已完成</td>
+<td>已有全量测试与性能报告产物</td>
+</tr>
+<tr>
+<td>可视化</td>
+<td>已完成</td>
+<td>Web可视化，HTML + D3 的前端实现，用于展示 myCPU trace</td>
+</tr>
+<tr>
+<td>在模拟器上运行 miniOS/Linux</td>
+<td>未完成（下阶段可选）</td>
+<td>当前具备最小内核实验条件，但尚无完整 OS 镜像</td>
+</tr>
+</tbody>
+</table>
+<h4 id="22-交付物">2.2 交付物</h4>
+<ul>
+<li>可独立运行的 RV32I 指令模拟器 myCPU</li>
+<li>完整的技术报告与演示</li>
+</ul>
+<h4 id="23-成员分工">2.3 成员分工</h4>
+<ul>
+<li>袁善：负责项目管理与总体架构设计，CPU/流水线，ISA与译码，CSR与异常中断，存储系统与Cache，基础MMU，外设与ELF装载，Trace与Web可视化，ctest，测试框架与门禁，性能分析与报告撰写，文档写作，ppt制作与汇报。</li>
+<li>雷池：负责memory模块设计、外设与ELF装载等，协助推进项目其他核心模块的研发与调试，文档写作，ppt制作与汇报。</li>
+<li>王小方：负责ctest集成与自动化测试、Trace与Web可视化等，协助完成部分开发与系统调试工作，文档写作，ppt制作。</li>
+</ul>
+<h3 id="3-项目内容">3 项目内容</h3>
+<h4 id="31-项目总体架构">3.1 项目总体架构</h4>
+<p><img src="figures/001.png" alt="项目总体架构"></p>
+<ul>
+<li>模块：CPU pipeline（IF→ID→EX→MEM→WB） ⇄ I/D Cache ⇄ MMU(Sv32) ⇄ Memory / MMIO。</li>
+<li>外设：UART（tohost/semi-hosting）、Timer（mtime 中断）。</li>
+<li>Trace：JSONL/SSE 输出用于 Web 可视化（pipeline 气泡图、指令甘特图、存储器镜像）。</li>
+</ul>
+<h4 id="32-cpu微结构设计">3.2 CPU微结构设计</h4>
+<p><img src="figures/002.png" alt="cpu"></p>
+<ul>
+<li>
+<p>五级顺序流水：IF → ID → EX → MEM → WB；异常与分支通过流水线冲刷与重定向处理。</p>
+</li>
+<li>
+<p>数据冒险：实现寄存器转发（Forwarding），在 load-use 场景插入 1 周期停顿以保证语义正确性。</p>
+</li>
+<li>
+<p>控制冒险与异常：分支冲刷 + trap/中断委托（ECALL/MRET/SRET），CSR 文件用于特权与 trap 管理。</p>
+</li>
+<li>
+<p>ISA 覆盖：实现 49 条有效指令（RV32I 子集 + CSR 指令）。</p>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th style="text-align:right">条数</th>
+<th>指令</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R型算术</td>
+<td style="text-align:right">10</td>
+<td>ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND</td>
+</tr>
+<tr>
+<td>I型算术</td>
+<td style="text-align:right">9</td>
+<td>ADDI, SLLI, SLTI, SLTIU, XORI, SRLI, SRAI, ORI, ANDI</td>
+</tr>
+<tr>
+<td>Load</td>
+<td style="text-align:right">5</td>
+<td>LB, LH, LW, LBU, LHU</td>
+</tr>
+<tr>
+<td>Store</td>
+<td style="text-align:right">3</td>
+<td>SB, SH, SW</td>
+</tr>
+<tr>
+<td>Branch</td>
+<td style="text-align:right">6</td>
+<td>BEQ, BNE, BLT, BGE, BLTU, BGEU</td>
+</tr>
+<tr>
+<td>U型</td>
+<td style="text-align:right">2</td>
+<td>LUI, AUIPC</td>
+</tr>
+<tr>
+<td>JAL</td>
+<td style="text-align:right">1</td>
+<td>JAL</td>
+</tr>
+<tr>
+<td>JALR</td>
+<td style="text-align:right">1</td>
+<td>JALR</td>
+</tr>
+<tr>
+<td>CSR/特权</td>
+<td style="text-align:right">10</td>
+<td>ECALL, MRET, SRET, SFENCE.VMA, CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI</td>
+</tr>
+<tr>
+<td>Fence</td>
+<td style="text-align:right">2</td>
+<td>FENCE, FENCE.I</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>当前有效指令总数为 49（排除占位项 UNKNOWN、SYSTEM）。</li>
+</ul>
+</li>
+<li>
+<p>可观测指标（用于回归与定位）：cycles、instrs、stall、cache_stall、hazard_stall。</p>
+</li>
+</ul>
+<h4 id="33-存储系统">3.3 存储系统</h4>
+<p><img src="figures/003.png" alt="存储"></p>
+<ul>
+<li>I/D Cache → MMU（Sv32）→ 物理内存 的统一存储链路，Memory 层负责 MMIO 的透明路由与 Bypass。</li>
+<li>MMU 路径：VA → TLB → PA，支持 ASID-aware TLB 与 SFENCE.VMA 的精确失效。</li>
+<li>Cache miss 在流水线中表现为 MEM 阶段等待（计入 cache_stall 指标），会直接增加总周期数。</li>
+</ul>
+<h4 id="34-id-cache架构设计与实现">3.4 I/D Cache架构设计与实现</h4>
+<ul>
+<li>Cache组织：按 line 与 set 组织，
+<ul>
+<li>默认 16 KB / 64 B line / 4-way（可配置）。</li>
+</ul>
+</li>
+<li>替换算法：LRU（最近最少使用）</li>
+<li>写策略：支持 Write-back / Write-through；</li>
+<li>写分配策略：Write-allocate / No-write-allocate。</li>
+<li>性能指标：accesses / hits / misses、evictions / writebacks
+<ul>
+<li>Miss 可按 Cold/Conflict/Capacity 分类统计以支持结构化分析。</li>
+</ul>
+</li>
+<li>实现备注：缺失延迟由 miss_latency 参数模拟（默认 10 cycles），统计数据用于门禁与回归检查。</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">参数名</th>
+<th style="text-align:left">含义</th>
+<th style="text-align:left">默认值与说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><code>cache_size</code></td>
+<td style="text-align:left">总容量</td>
+<td style="text-align:left"><strong>16 KB</strong> (16384 Bytes)</td>
+</tr>
+<tr>
+<td style="text-align:left"><code>line_size</code></td>
+<td style="text-align:left">缓存行大小</td>
+<td style="text-align:left">默认 <strong>64 Bytes</strong></td>
+</tr>
+<tr>
+<td style="text-align:left"><code>associativity</code></td>
+<td style="text-align:left">相联度</td>
+<td style="text-align:left">默认 <strong>4 路</strong>组相联（结构体初始化默认为 1，即 direct-mapped）</td>
+</tr>
+<tr>
+<td style="text-align:left"><code>miss_latency</code></td>
+<td style="text-align:left">缺失延迟</td>
+<td style="text-align:left"><strong>10</strong>（用于模拟 Cache 未命中时的内存访问周期）</td>
+</tr>
+</tbody>
+</table>
+<h4 id="35-mmu-与-mmio中断与外设">3.5 MMU 与 MMIO、中断与外设</h4>
+<p><img src="figures/004.png" alt="MMU等"></p>
+<ul>
+<li>MMU 与 MMIO
+<ul>
+<li>Sv32 两级页表：支持基于 SATP 的标准地址翻译与 PTE（V/R/W/X/U/S/A/D）语义；缺页与权限违规触发 Trap。</li>
+<li>TLB：ASID-aware 缓存，支持按 VPN/ASID 的精细 SFENCE.VMA 失效以避免地址空间污染。</li>
+<li>MMIO：Memory 层统一路由；MMIO 映射可强制绕过 Cache（bypass），并具有副作用（如 UART 输出触发终端显示、Timer 触发中断）</li>
+</ul>
+</li>
+<li>中断与外设
+<ul>
+<li>Timer：支持定时器滴答并触发中断（mtime -&gt; CSR mip）。</li>
+<li>UART：提供串口输入/输出与 semihosting（tohost）支持。</li>
+<li>中断处理：优先处理 timer，再处理 UART；触发时通过 CSR 走 trap/委托路径并冲刷流水线。</li>
+</ul>
+</li>
+</ul>
+<h3 id="4-测试验证">4 测试验证</h3>
+<h4 id="41-测试内容">4.1 测试内容</h4>
+<ul>
+<li>ctest：20项，包括指令解码、单周期与五级流水线的执行与冒险/转发处理、缓存子系统、MMU 映射/访问控制与 SFENCE.VMA 语义、CSR 与特权/陷阱委托、ELF 装载、内存的 byte/half/word 操作，以及 UART MMIO、定时器与中断的功能与交互，确保微架构在各种边界条件下的正确性。</li>
+<li>指令集 (ISA)：42 项 rv32ui 全量测试，验证基础指令的逻辑完备性。</li>
+<li>Benchmarks：
+<ul>
+<li>hello.c：轻量级功能验证。</li>
+<li>matmul.c：16x16矩阵乘法（评估高空间局部性访存）。</li>
+<li>quicksort_stress.c：快排压力测试（评估写策略对频繁交换的影响）。</li>
+</ul>
+</li>
+<li>Web smoke：trace_server 健康检查与首页可达。</li>
+</ul>
+<h4 id="42-实验方法与处理">4.2 实验方法与处理</h4>
+<ul>
+<li>
+<p>配置对比：对比 p1、p10 与 no-cache 三组环境。采集相关数据并计算相关系数与分解。</p>
+<ul>
+<li>
+<p>三组配置含义</p>
+<table>
+<thead>
+<tr>
+<th>配置名</th>
+<th>cache 状态</th>
+<th>miss penalty</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>p1</td>
+<td>开启</td>
+<td>1</td>
+<td>低 miss 代价组，用于观察理想 cache 效果</td>
+</tr>
+<tr>
+<td>p10</td>
+<td>开启</td>
+<td>10</td>
+<td>高 miss 代价组，用于观察 miss 对性能放大效应</td>
+</tr>
+<tr>
+<td>no-cache</td>
+<td>关闭</td>
+<td>10</td>
+<td>无 cache 基线；访存直接走内存路径</td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p>相关参数</p>
+<ul>
+<li><code>speedup_p10 = cycles_nocache / cycles_p10</code>。值越大表示 cache 收益越高。</li>
+<li><code>speedup_p1 = cycles_nocache / cycles_p1</code>。用于评估低 penalty 下收益上限。</li>
+<li><code>penalty_ratio = cycles_p10 / cycles_p1</code>。用于评估 workload 对 miss penalty 敏感度。</li>
+<li>相关系数 <code>corr(D-hit, speedup)</code> 与 <code>corr(I-hit, speedup)</code> 用于衡量命中率与收益关系。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p>策略矩阵：对比 5 种Cache策略组合（wb_wa / wb_nowa / wt_wa / wt_nowa / nocache）。</p>
+<ul>
+<li>wb_wa (Write-Back + Write-Allocate)：写回策略 + 写分配。这是现代高性能处理器的标配。当发生写缺失（Write Miss）时，硬件会将数据块从主存加载到 Cache 中再进行修改。</li>
+<li>wb_nowa (Write-Back + No-Write-Allocate)：写回策略 + 不写分配。写缺失时直接写入主存，不将数据块调入 Cache。</li>
+<li>wt_wa (Write-Through + Write-Allocate)：写直达策略 + 写分配。每次写入都会同步更新到主存。</li>
+<li>wt_nowa (Write-Through + No-Write-Allocate)：写直达策略 + 不写分配。</li>
+<li>nocache：禁用 Cache。所有访存指令直接穿透至物理内存，每次访问固定承受 10 个周期的 Miss Penalty（延迟惩罚）。</li>
+</ul>
+</li>
+<li>
+<p>自动化链路：</p>
+<ul>
+<li>test_all.sh 自动化测试，并将数据导出至 CSV。</li>
+<li>gen_full_test_report.py 对齐数据并计算相关系数与 Speedup，生成性能报告。</li>
+<li>check_benchmark_cache_gate.py 等自动化性能门禁判定。</li>
+</ul>
+</li>
+</ul>
+<h4 id="43-正确性结果">4.3 正确性结果</h4>
+<ul>
+<li>
+<p>ctest: 20/20 通过，失败 0。</p>
+</li>
+<li>
+<p>rv32ui p1: 42/42 通过。</p>
+</li>
+<li>
+<p>rv32ui p10: 42/42 通过。</p>
+</li>
+<li>
+<p>rv32ui no-cache: 42/42 通过。</p>
+</li>
+<li>
+<p>benchmark 返回码：</p>
+<table>
+<thead>
+<tr>
+<th>benchmark</th>
+<th style="text-align:right">rc_p1</th>
+<th style="text-align:right">rc_p10</th>
+<th style="text-align:right">rc_nocache</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>hello</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">0</td>
+</tr>
+<tr>
+<td>matmul</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">0</td>
+</tr>
+<tr>
+<td>quicksort_stress</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">0</td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p>gate status: PASS (baseline: <code>wb_wa</code>)</p>
+</li>
+<li>
+<p>gate issues: 0</p>
+</li>
+<li>
+<p>web smoke</p>
+<ul>
+<li>采样状态：PASS</li>
+<li>状态说明：sampled</li>
+<li>健康检查响应：
+{&quot;ok&quot;: true, &quot;clients&quot;: 0, &quot;buffered_lines&quot;: 0, &quot;total_lines&quot;: 0, &quot;last_cycle&quot;: -1, &quot;child_pid&quot;: null, &quot;child_running&quot;: false, &quot;ts&quot;: 1776134762}</li>
+</ul>
+</li>
+<li>
+<p><strong>结论：全部通过正确性验证。</strong></p>
+</li>
+</ul>
+<h3 id="5-性能结果与分析">5 性能结果与分析</h3>
+<ul>
+<li><strong><a href="../FULL_TEST_PERFORMANCE_REPORT.md">完整性能报告</a><code>../FULL_TEST_PERFORMANCE_REPORT.md</code></strong></li>
+</ul>
+<h4 id="51-isa">5.1 ISA</h4>
+<ul>
+<li>
+<p>Speedup：平均加速 6.46x，最高可达7.88x</p>
+</li>
+<li>
+<p>延迟掩盖：p10/p1 平均 cycle 比：1.54×，表明在平均场景下 cache 对高内存延迟有明显掩盖作用。</p>
+</li>
+<li>
+<p>访存密集型用例加速比 (6.57x) 显著高于非访存型 (6.41x)。符合预期。
+<img src="../figures/full_run_20260414_speedup_bar.png" alt="speedup_rv32i"></p>
+</li>
+<li>
+<p>平均 stall 拆分（算术平均）：stall / cache_stall / hazard_stall = 5.19 / 315.14 / 5.19</p>
+<ul>
+<li>前递（Forwarding）显著降低了寄存器相关停顿，但 load-use 情形仍会产生短暂停顿以保证正确性。</li>
+</ul>
+</li>
+<li>
+<p>Miss分解：I-miss 以 Cold Miss 为主（约 87%）；D-miss 以 Conflict Miss 为主（约 85%），与 rv32ui 官方测试（许多短小、独立的微测试）的固有特性相关。</p>
+</li>
+<li>
+<p>策略选优：wb_wa (写回+写分配) 凭借对局部性的精准捕捉，在 D-Hit 普遍偏低 (18-19%) 的环境下，依然获得了最低的执行周期 (696.88)</p>
+<table>
+<thead>
+<tr>
+<th>policy</th>
+<th style="text-align:right">pass/tests</th>
+<th style="text-align:right">avg_cycles</th>
+<th style="text-align:right">avg_i_hit</th>
+<th style="text-align:right">avg_d_hit</th>
+<th style="text-align:right">speedup_vs_nocache</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>wb_wa</td>
+<td style="text-align:right">42/42</td>
+<td style="text-align:right">696.88</td>
+<td style="text-align:right">93.50</td>
+<td style="text-align:right">19.41</td>
+<td style="text-align:right">6.4705</td>
+</tr>
+<tr>
+<td>wb_nowa</td>
+<td style="text-align:right">42/42</td>
+<td style="text-align:right">698.88</td>
+<td style="text-align:right">93.50</td>
+<td style="text-align:right">18.34</td>
+<td style="text-align:right">6.4553</td>
+</tr>
+<tr>
+<td>wt_wa</td>
+<td style="text-align:right">42/42</td>
+<td style="text-align:right">698.88</td>
+<td style="text-align:right">93.50</td>
+<td style="text-align:right">18.34</td>
+<td style="text-align:right">6.4553</td>
+</tr>
+<tr>
+<td>wt_nowa</td>
+<td style="text-align:right">42/42</td>
+<td style="text-align:right">698.88</td>
+<td style="text-align:right">93.50</td>
+<td style="text-align:right">18.34</td>
+<td style="text-align:right">6.4553</td>
+</tr>
+<tr>
+<td>nocache</td>
+<td style="text-align:right">42/42</td>
+<td style="text-align:right">4633.83</td>
+<td style="text-align:right">0.00</td>
+<td style="text-align:right">0.00</td>
+<td style="text-align:right">1.0000</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>所有 5 种模式均以 42/42 的成绩通过了 RISC-V 官方指令集测试，证明了 Cache 控制器状态机在处理任意边缘指令时不存在数据一致性（Consistency）漏洞。</li>
+<li>由于官方测试程序极短，数据访问量极小，D-Cache 的平均命中率普遍较低（约 18%-19%）。这反映了典型的冷启动缺失（Cold Miss）主导场景。即便如此，wb_wa 策略依然凭借其对局部性的微弱捕捉，取得了最低的平均周期数（696.88）。</li>
+</ul>
+</li>
+</ul>
+<h4 id="52-benchmarks">5.2 Benchmarks</h4>
+<ul>
+<li>penalty_ratio接近 1.00 表明cache的延迟掩盖效果优秀</li>
+<li>matmul (11.34x 加速)：矩阵乘法具有极强的空间局部性，D-Cache 命中率高达 99.50%。Cache 将 315 万周期的运行时间压缩到了 27 万。</li>
+<li>quicksort_stress (12.71x 加速)：快排涉及深度的递归栈操作和频繁的非连续数组交换，导致极高的数据读写压力。在没有 Cache 时周期数高达 2500 万，开启后通过 Write-Back 策略合并了大量对同一栈地址的重复写入，获得了12.7 倍加速。</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>benchmark</th>
+<th style="text-align:right">cycles_p1</th>
+<th style="text-align:right">cycles_p10</th>
+<th style="text-align:right">cycles_nocache</th>
+<th style="text-align:right">speedup_p10</th>
+<th style="text-align:right">speedup_p1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>hello</td>
+<td style="text-align:right">143</td>
+<td style="text-align:right">161</td>
+<td style="text-align:right">1518</td>
+<td style="text-align:right">9.43x</td>
+<td style="text-align:right">10.62x</td>
+</tr>
+<tr>
+<td>matmul</td>
+<td style="text-align:right">277570</td>
+<td style="text-align:right">277966</td>
+<td style="text-align:right">3151861</td>
+<td style="text-align:right">11.34x</td>
+<td style="text-align:right">11.36x</td>
+</tr>
+<tr>
+<td>quicksort_stress</td>
+<td style="text-align:right">1971272</td>
+<td style="text-align:right">1972901</td>
+<td style="text-align:right">25074548</td>
+<td style="text-align:right">12.71x</td>
+<td style="text-align:right">12.72x</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>benchmark</th>
+<th style="text-align:right">penalty_ratio</th>
+<th style="text-align:right">i_hit_p10</th>
+<th style="text-align:right">d_hit_p10</th>
+<th style="text-align:right">stall_p10</th>
+<th>checksum_p10</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>hello</td>
+<td style="text-align:right">1.13x</td>
+<td style="text-align:right">99.15%</td>
+<td style="text-align:right">95.24%</td>
+<td style="text-align:right">21</td>
+<td>-</td>
+</tr>
+<tr>
+<td>matmul</td>
+<td style="text-align:right">1.00x</td>
+<td style="text-align:right">99.98%</td>
+<td style="text-align:right">99.50%</td>
+<td style="text-align:right">165</td>
+<td>-</td>
+</tr>
+<tr>
+<td>quicksort_stress</td>
+<td style="text-align:right">1.00x</td>
+<td style="text-align:right">100.00%</td>
+<td style="text-align:right">99.86%</td>
+<td style="text-align:right">56</td>
+<td>e48d8e25</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>benchmark 平均 speedup_p10: 11.16x；中位数: 11.34x。</li>
+<li>benchmark 平均 penalty_ratio_p10_over_p1: 1.04x。</li>
+<li>matmul（no-cache / p10）cycle 比: 11.34x</li>
+<li>quicksort_stress（no-cache / p10）cycle 比: 12.71x</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>policy</th>
+<th style="text-align:right">pass/benchmarks</th>
+<th style="text-align:right">avg_cycles</th>
+<th style="text-align:right">avg_i_hit_pct</th>
+<th style="text-align:right">avg_d_hit_pct</th>
+<th style="text-align:right">avg_speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>wb_wa</td>
+<td style="text-align:right">3/3</td>
+<td style="text-align:right">750342.67</td>
+<td style="text-align:right">99.71</td>
+<td style="text-align:right">98.20</td>
+<td style="text-align:right">11.1590</td>
+</tr>
+<tr>
+<td>wb_nowa</td>
+<td style="text-align:right">3/3</td>
+<td style="text-align:right">751638.67</td>
+<td style="text-align:right">99.71</td>
+<td style="text-align:right">93.95</td>
+<td style="text-align:right">11.1440</td>
+</tr>
+<tr>
+<td>wt_wa</td>
+<td style="text-align:right">3/3</td>
+<td style="text-align:right">751638.67</td>
+<td style="text-align:right">99.71</td>
+<td style="text-align:right">93.95</td>
+<td style="text-align:right">11.1440</td>
+</tr>
+<tr>
+<td>wt_nowa</td>
+<td style="text-align:right">3/3</td>
+<td style="text-align:right">751638.67</td>
+<td style="text-align:right">99.71</td>
+<td style="text-align:right">93.95</td>
+<td style="text-align:right">11.1440</td>
+</tr>
+<tr>
+<td>nocache</td>
+<td style="text-align:right">3/3</td>
+<td style="text-align:right">9409309.00</td>
+<td style="text-align:right">0.00</td>
+<td style="text-align:right">0.00</td>
+<td style="text-align:right">1.0000</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>对比 nocache 模式下的 940 万个平均周期，开启 Cache 后周期数骤降至 75 万左右，实现了高达 11.15 倍 的综合加速比。</li>
+<li>在当前 benchmark 样本中，wb_wa 策略的 D-Cache 命中率为 98.20%，高于其他策略的 93.95%。
+<ul>
+<li>原理解析：快排和矩阵乘法中存在较多“读-修改-写”访问模式，write-allocate 更容易把首次写缺失后的数据块提前带入 Cache，从而提高后续复用命中的机会。这里描述的是当前样本下观察到的相关现象，而不是对所有 workload 的普遍结论。</li>
+</ul>
+</li>
+</ul>
+<h4 id="53-结论">5.3 结论</h4>
+<p>cache性能良好， 在 rv32ui 提供 6.46x 平均加速，在 matmul 与 quicksort 分别达到 11.34x 和 12.71x；benchmark cache matrix 显示 wb_wa 在当前样本下综合最优并已纳入门禁。</p>
+<h3 id="6-可视化与工程化">6 可视化与工程化</h3>
+<h4 id="61-可视化">6.1 可视化</h4>
+<ul>
+<li>数据链路：SSE/JSONL Trace → Web dashboard（支持确定性单步、回放与周期跳转）。</li>
+<li>多维视图：Pipeline (气泡/转发可视化)、指令甘特图 (冒险/时序分析)、存储器 (Cache命中/内存镜像)。</li>
+<li>量化监控：窗口化 KPI 统计（IPC / 命中率 / Stall 占比）及历史趋势曲线，辅助识别性能瓶颈。</li>
+</ul>
+<p><img src="figures/005.png" alt="可视化1"></p>
+<p><img src="figures/006.png" alt="可视化2"></p>
+<ul>
+<li>
+<p>面板展示内容</p>
+<ul>
+<li>流水线实时视图（IF/ID/EX/MEM/WB）</li>
+<li>最近 32 cycle 指令时间轴</li>
+<li>侧边栏性能折线图（最近 1000 cycle 的 IPC、D-Cache 命中率、Cache Stall 占比）</li>
+<li>性能 KPI 卡片（窗口内 I/D miss、D eviction/writeback、cache/hazard stall 增量）</li>
+<li>x0..x31 寄存器窗口（高亮当周期写回）</li>
+<li>I/D cache 命中率与事件列表</li>
+<li>当前周期访存事件与原始 trace</li>
+<li>Memory Inspector（按地址窗口回放，随 cycle 更新）</li>
+<li>Virtual Console（从 Trace 的 UART 写入事件提取字符）</li>
+</ul>
+</li>
+<li>
+<p>运行
+先启动 trace server：</p>
+<pre class="hljs"><code><div><span class="hljs-built_in">cd</span> /home/ys/camycpu
+./tools/run_trace_demo.sh
+
+<span class="hljs-comment"># 可选：指定 ELF 与最大周期数</span>
+./tools/run_trace_demo.sh benchmarks/hello.elf 200
+
+<span class="hljs-comment"># 可选：固定端口，避免自动回退</span>
+TRACE_PORT=8080 ./tools/run_trace_demo.sh benchmarks/hello.elf 200
+</div></code></pre>
+<p>脚本会打印最终访问地址；如果 8080 被占用会自动回退到其他端口（例如 18080/18081）。</p>
+<p>然后浏览器访问脚本打印的 URL，例如：</p>
+<pre class="hljs"><code><div>http://localhost:8080
+</div></code></pre>
+</li>
+</ul>
+<h4 id="62-自动化">6.2 自动化</h4>
+<ul>
+<li>一键测试链路：test_all.sh 驱动 CTest、rv32ui 以及多配置 Benchmark 运行。</li>
+<li>报告自动生成：脚本采集数据并生成 CSV、JSON 门禁判定及 Markdown 技术报告。</li>
+<li>性能门禁：check_benchmark_gate. py 等自动对比基准值，拦截性能退化。
+<ul>
+<li>以 wb_wa 为 Baseline 策略；基于预设阈值判定，失败则阻断产出或触发 Warn 预警。</li>
+</ul>
+</li>
+</ul>
+<h3 id="7-总结及未来计划">7 总结及未来计划</h3>
+<h4 id="71-总结">7.1 总结</h4>
+<ul>
+<li>已完成：一台可独立运行的 RV32I 指令模拟器 myCPU（五级顺序流水、I/D Cache、Sv32 MMU、UART/Timer、49 条有效指令），<strong>达到课程项目要求</strong>。</li>
+<li>验证与门禁：CTest 20/20、rv32ui p1/p10/no-cache 均 42/42 ；benchmark返回值均为0，即PASS ；cache/benchmark gate  PASS。<strong>正确性验证通过</strong>。</li>
+<li>性能：<strong>cache性能良好</strong>， 在 rv32ui 提供 6.46x 平均加速，在 matmul 与 quicksort 分别达到 11.34x 和 12.71x；benchmark cache matrix 显示 wb_wa 在当前样本下综合最优并已纳入门禁。</li>
+</ul>
+<h4 id="72-未来计划">7.2 未来计划</h4>
+<ul>
+<li>在模拟器上运行 miniOS（或最小 Linux 镜像）</li>
+<li>增强中断/MMU 边界测试</li>
+<li>扩展 trace 可视化功能与长期负载评估</li>
+<li>针对cache优化进行调研，进一步优化cache</li>
+<li>……</li>
+</ul>
+<p><strong>【时间】2026年5月6日</strong></p>
+
+</body>
+</html>

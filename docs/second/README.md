@@ -14,3 +14,9 @@
   - 现场演示指南（Stall 动画与 Cache 命中率）
 - `detection_report_20260413.md`
   - 本轮检测汇总报告（含 benchmark cache matrix 与 web smoke 重采样）
+
+- `docs/second/CA_ys_260423_finalpresentation_git.pdf`
+  - 结题汇报ppt
+
+- `docs/second/final_report.md`
+  - 结题汇报
