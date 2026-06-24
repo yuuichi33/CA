@@ -1,4 +1,0 @@
-108M	build
-136K	tmp
-0	Testing
-4.2M	riscv-tests
