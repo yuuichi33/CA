@@ -204,7 +204,7 @@ python3 tools/check_benchmark_gate.py \
 ## 技术栈
 
 - **语言**: C++17
-- **构建**: CMake 3.10+
+- **构建**: CMake 3.22
 - **测试**: CTest + rv32ui (RISC-V 官方测试套件)
 - **工具链**: RISC-V GNU Toolchain (riscv64-unknown-elf-gcc)
 - **脚本**: Bash + Python 3
